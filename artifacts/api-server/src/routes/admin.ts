@@ -50,7 +50,7 @@ router.get("/admin/stats", authenticateAdmin as any, async (req, res) => {
     // 2. Filtered Stats (New Users, Activations, Revenue)
     let userQuery = db.select({ count: sql<number>`count(*)` }).from(usersTable);
     let activationQuery = db.select({ count: sql<number>`count(*)` }).from(licenseActivationsTable);
-    let revenueQuery = db.select({ total: sql<number>`sum(amount)`, count: sql<number>`count(*)` }).from(paymentsTable).where(eq(paymentsTable.status, "completed"));
+    let revenueQuery = db.select({ total: sql<number>`sum(amount)`, count: sql<number>`count(*)` }).from(paymentsTable).where(eq(paymentsTable.status, "success"));
 
     if (startDate) {
       userQuery = userQuery.where(gte(usersTable.createdAt, startDate)) as any;
@@ -81,7 +81,7 @@ router.get("/admin/stats", authenticateAdmin as any, async (req, res) => {
       SELECT 
         to_char(days.day, 'Mon') as name,
         (SELECT count(*) FROM ${licenseActivationsTable} WHERE date_trunc('day', activated_at) = days.day) as activations,
-        (SELECT COALESCE(sum(amount), 0) FROM ${paymentsTable} WHERE date_trunc('day', created_at) = days.day AND status = 'completed') as revenue,
+        (SELECT COALESCE(sum(amount), 0) FROM ${paymentsTable} WHERE date_trunc('day', created_at) = days.day AND status = 'success') as revenue,
         (SELECT count(*) FROM ${usersTable} WHERE date_trunc('day', created_at) = days.day) as users
       FROM days
       ORDER BY days.day ASC
@@ -102,7 +102,7 @@ router.get("/admin/stats", authenticateAdmin as any, async (req, res) => {
       UNION ALL
       (SELECT 'New user registered' as text, created_at as date, 'user' as type FROM ${usersTable} ORDER BY created_at DESC LIMIT 2)
       UNION ALL
-      (SELECT 'Payment received' as text, created_at as date, 'payment' as type FROM ${paymentsTable} WHERE status = 'completed' ORDER BY created_at DESC LIMIT 2)
+      (SELECT 'Payment received' as text, created_at as date, 'payment' as type FROM ${paymentsTable} WHERE status = 'success' ORDER BY created_at DESC LIMIT 2)
       ORDER BY date DESC LIMIT 5
     `);
 

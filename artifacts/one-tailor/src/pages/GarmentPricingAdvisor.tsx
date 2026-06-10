@@ -145,7 +145,6 @@ export default function GarmentPricingAdvisor() {
                 <p className="text-[9px] text-slate-400">For high-end bespoke work with complex detailing.</p>
               </div>
             </div>
-          </div>
 
             <button onClick={() => setResult(null)} className="w-full flex items-center justify-center gap-2 text-sm text-muted-foreground py-2 hover:text-foreground transition-colors">
               <RefreshCw size={14} />

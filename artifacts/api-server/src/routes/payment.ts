@@ -504,7 +504,8 @@ router.put("/payment-info", authenticateAdmin as any, async (req, res) => {
       "instructions", "paymentLink", "globalUsageLimit", 
       "measurementLimit", "proUpgradeMessage", 
       "proUpgradeLink", "proUpgradeButtonText",
-      "currencyCode", "currencySymbol"
+      "currencyCode", "currencySymbol",
+      "isDebugMode", "isUsageLimitEnabled"
     ];
 
     for (const key of allowedFields) {
