@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, businessProfilesTable, usersTable } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { generateReferralCode } from "../lib/utils";
 
 const router: IRouter = Router();
@@ -9,23 +9,6 @@ const router: IRouter = Router();
 router.get("/profile/:deviceId", async (req, res) => {
   const { deviceId } = req.params;
   try {
-    // Basic migration check (pglite specific)
-    try {
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS referred_by INTEGER REFERENCES users(id)`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS successful_invites INTEGER DEFAULT 0`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_reward_level INTEGER DEFAULT 0`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS referral_confirmed BOOLEAN DEFAULT FALSE`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS bonus_usage_limit INTEGER DEFAULT 0`);
-      await db.execute(sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS premium_expiry_date TIMESTAMP`);
-      
-      // Payment Settings migrations
-      await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS is_debug_mode BOOLEAN DEFAULT FALSE`);
-      await db.execute(sql`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS is_usage_limit_enabled BOOLEAN DEFAULT TRUE`);
-    } catch (migError) {
-      console.warn("[USER] Migration check skipped or failed:", migError);
-    }
-
     let [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId)).limit(1);
     
     if (!user) {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { authFetch } from "@/lib/authFetch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -34,7 +35,7 @@ interface PaymentInfo {
 
 export default function PaymentSettings() {
   const [settings, setSettings] = useState<PaymentInfo>({
-    price: 1500000,
+    price: 15000,
     bankName: "",
     accountNumber: "",
     accountName: "",
@@ -75,13 +76,9 @@ export default function PaymentSettings() {
     e.preventDefault();
     setSaving(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/payment-info", {
+      const res = await authFetch("/api/payment-info", {
         method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
       if (res.ok) {
@@ -199,7 +196,9 @@ export default function PaymentSettings() {
                 onChange={(e) => setSettings({...settings, paystackSecretKey: e.target.value})} 
                 style={inputStyle}
                 className="h-12 rounded-xl border-none font-mono text-xs"
+                placeholder="sk_live_••••••••  (leave blank to keep existing)"
               />
+              <p className="text-xs text-muted-foreground px-1">Leave blank to keep the existing secret key. Only enter a new value to replace it.</p>
             </div>
           </CardContent>
         </Card>

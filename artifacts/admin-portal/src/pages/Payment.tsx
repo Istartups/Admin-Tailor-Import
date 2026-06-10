@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { authFetch } from "@/lib/authFetch";
 import { 
   Card, CardContent, CardHeader, CardTitle, CardDescription 
 } from "@/components/ui/card";
@@ -47,10 +48,7 @@ export default function Payment() {
   const fetchPayments = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/payments", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await authFetch("/api/admin/payments");
       if (res.ok) {
         const data = await res.json();
         setPayments(data);
@@ -76,11 +74,7 @@ export default function Payment() {
   const handleApprove = async (id: number) => {
     if (!confirm("Are you sure you want to approve this payment and activate the license?")) return;
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch(`/api/admin/payments/${id}/approve`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await authFetch(`/api/admin/payments/${id}/approve`, { method: "POST" });
       if (res.ok) {
         toast({ title: "Approved", description: "Payment approved and license generated." });
         fetchPayments();
@@ -93,13 +87,9 @@ export default function Payment() {
   const handleReject = async () => {
     if (!selectedPayment || !rejectReason) return;
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch(`/api/admin/payments/${selectedPayment.id}/reject`, {
+      const res = await authFetch(`/api/admin/payments/${selectedPayment.id}/reject`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}` 
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ reason: rejectReason })
       });
       if (res.ok) {

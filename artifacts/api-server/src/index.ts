@@ -305,7 +305,7 @@ async function startServer() {
       logger.info("Initializing payment settings...");
       await db.insert(paymentSettingsTable).values({
         id: 1,
-        price: 1500000, // 15,000 NGN in kobo
+        price: 15000, // 15,000 NGN (stored in Naira, whole units)
         bankName: "Opay",
         accountNumber: "1234567890",
         accountName: "OneTailor Technologies",

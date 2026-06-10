@@ -148,9 +148,13 @@ router.post("/admin/licenses/:id/resend", authenticateAdmin as any, async (req, 
       return;
     }
 
-    // TODO: Trigger automated email/manual message details
+    if (license.email) {
+      const emailTemplate = templates.licenseActivated(license.businessName || license.customerName || "Customer", license.key);
+      await sendEmail(license.email, emailTemplate.subject, emailTemplate.html);
+    }
+
     res.json({ 
-      message: "License details ready for resending",
+      message: license.email ? "License details resent via email" : "License details ready (no email on file)",
       details: {
         key: license.key,
         businessName: license.businessName,

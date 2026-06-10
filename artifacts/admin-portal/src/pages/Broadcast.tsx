@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { authFetch } from "@/lib/authFetch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,13 +29,9 @@ export default function Broadcast() {
 
     setSending(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/notifications/broadcast", {
+      const res = await authFetch("/api/admin/notifications/broadcast", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, body, url }),
       });
 

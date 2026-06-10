@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { authFetch } from "@/lib/authFetch";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -48,10 +49,7 @@ export default function LicenseManagement() {
   const fetchLicenses = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/licenses", {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await authFetch("/api/admin/licenses");
       if (res.ok) {
         const data = await res.json();
         setLicenses(data);
@@ -70,13 +68,9 @@ export default function LicenseManagement() {
   const handleCreate = async () => {
     setSubmitting(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/licenses", {
+      const res = await authFetch("/api/admin/licenses", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newLicense),
       });
       if (res.ok) {
@@ -94,13 +88,9 @@ export default function LicenseManagement() {
 
   const handleUpdateStatus = async (id: number, status: string) => {
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch(`/api/admin/licenses/${id}/status`, {
+      const res = await authFetch(`/api/admin/licenses/${id}/status`, {
         method: "PATCH",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
       if (res.ok) {
@@ -114,11 +104,7 @@ export default function LicenseManagement() {
 
   const handleResend = async (id: number) => {
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch(`/api/admin/licenses/${id}/resend`, {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await authFetch(`/api/admin/licenses/${id}/resend`, { method: "POST" });
       if (res.ok) {
         const data = await res.json();
         // Prepare copyable text for manual sending

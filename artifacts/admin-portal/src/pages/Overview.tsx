@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { authFetch } from "@/lib/authFetch";
 import { 
   Users, 
   UserCheck, 
@@ -73,11 +74,8 @@ export default function Overview() {
   });
 
   const fetchStats = async () => {
-    const token = localStorage.getItem("admin_token");
     try {
-      const res = await fetch(`/api/admin/stats?filter=${timeFilter}`, {
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await authFetch(`/api/admin/stats?filter=${timeFilter}`);
       if (!res.ok) throw new Error("Failed to fetch stats");
       const data = await res.json();
       setStats(data);

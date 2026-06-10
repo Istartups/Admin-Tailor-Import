@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { authFetch } from "@/lib/authFetch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Card, 
@@ -133,13 +134,9 @@ export default function Settings() {
     e.preventDefault();
     setSaving(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/payment-info", {
+      const res = await authFetch("/api/payment-info", {
         method: "PUT",
-        headers: { 
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
       });
       if (res.ok) {
@@ -157,11 +154,7 @@ export default function Settings() {
     
     setSaving(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/reset-usage", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await authFetch("/api/admin/reset-usage", { method: "POST" });
       if (res.ok) {
         toast({ title: "Usage Counters Reset", description: "All users have been given fresh usage credits." });
       }
@@ -177,11 +170,7 @@ export default function Settings() {
     
     setSaving(true);
     try {
-      const token = localStorage.getItem("admin_token");
-      const res = await fetch("/api/admin/reset-database", {
-        method: "POST",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      const res = await authFetch("/api/admin/reset-database", { method: "POST" });
       if (res.ok) {
         toast({ title: "Database Wiped", description: "All system data has been cleared." });
       } else {

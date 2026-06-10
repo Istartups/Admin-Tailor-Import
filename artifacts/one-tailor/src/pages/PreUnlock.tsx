@@ -46,7 +46,8 @@ export default function PreUnlock() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
 
-  const [step, setStep] = useState<Step>("profile");
+  // Skip the profile step if the user already has a business profile saved
+  const [step, setStep] = useState<Step>(businessProfile ? "features" : "profile");
   const [settings, setSettings] = useState<PaymentSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);

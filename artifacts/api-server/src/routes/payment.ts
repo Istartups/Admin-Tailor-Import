@@ -530,6 +530,13 @@ router.put("/payment-info", authenticateAdmin as any, async (req, res) => {
       if (body[key] !== undefined) {
         if (key === "price" || key === "globalUsageLimit" || key === "measurementLimit") {
           updateData[key] = parseInt(body[key]) || 0;
+        } else if (key === "paystackSecretKey") {
+          // Never overwrite the stored secret key with an empty string.
+          // The public GET endpoint strips the key, so an admin saving without
+          // re-entering the key would otherwise wipe it.
+          if (body[key] && typeof body[key] === "string" && body[key].trim() !== "") {
+            updateData[key] = body[key].trim();
+          }
         } else {
           updateData[key] = body[key];
         }
@@ -578,19 +585,30 @@ router.post("/admin/payments/:id/approve", authenticateAdmin as any, async (req,
       .set({ isPremium: true })
       .where(eq(usersTable.id, payment.userId));
 
-    // 3. Generate License
+    // 3. Generate License (skip if user already has one)
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, payment.userId)).limit(1);
-    const licenseKey = generateLicenseKey();
-    const [newApprovedLicense] = await db.insert(licensesTable).values({
-      userId: user.id,
-      key: licenseKey,
-      status: "active",
-      activationDate: new Date(),
-      customerName: user.businessName,
-      email: user.email,
-      phone: user.phone,
-      businessName: user.businessName
-    }).returning();
+    const [existingApprovedLicense] = await db.select().from(licensesTable)
+      .where(eq(licensesTable.userId, user.id)).limit(1);
+
+    let licenseKey: string;
+    let newApprovedLicense: typeof existingApprovedLicense | undefined;
+    if (existingApprovedLicense) {
+      licenseKey = existingApprovedLicense.key;
+    } else {
+      licenseKey = generateLicenseKey();
+      const [inserted] = await db.insert(licensesTable).values({
+        userId: user.id,
+        key: licenseKey,
+        status: "active",
+        activationDate: new Date(),
+        licenseType: "one_tailor",
+        customerName: user.businessName,
+        email: user.email,
+        phone: user.phone,
+        businessName: user.businessName
+      }).returning();
+      newApprovedLicense = inserted;
+    }
 
     if (newApprovedLicense) {
       try {
@@ -617,14 +635,20 @@ router.post("/admin/payments/:id/reject", authenticateAdmin as any, async (req, 
   const { id } = req.params;
   const { reason } = req.body;
   try {
+    // Fetch first so we have userId before updating
+    const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, parseInt(id))).limit(1);
+    if (!payment) {
+      res.status(404).json({ message: "Payment not found" });
+      return;
+    }
+
     await db.update(paymentsTable)
       .set({ status: "failed", adminNotes: reason })
-      .where(eq(paymentsTable.id, parseInt(id)));
+      .where(eq(paymentsTable.id, payment.id));
 
     // Notify User
-    const [payment] = await db.select().from(paymentsTable).where(eq(paymentsTable.id, parseInt(id))).limit(1);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, payment.userId)).limit(1);
-    if (user.email) {
+    if (user?.email) {
       const emailTemplate = templates.paymentRejected(reason);
       await sendEmail(user.email, emailTemplate.subject, emailTemplate.html);
     }
