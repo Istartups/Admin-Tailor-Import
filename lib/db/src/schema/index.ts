@@ -19,6 +19,12 @@ export const usersTable = pgTable("users", {
   premiumExpiryDate: timestamp("premium_expiry_date"),
   lastSeen: timestamp("last_seen").notNull().defaultNow(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+
+  // Account credentials — nullable; anonymous/free users have no password
+  passwordHash: text("password_hash"),
+  lastLoginAt: timestamp("last_login_at"),
+  passwordResetToken: text("password_reset_token"),
+  passwordResetExpiry: timestamp("password_reset_expiry"),
 });
 
 export const adminsTable = pgTable("admins", {
@@ -32,6 +38,8 @@ export const licensesTable = pgTable("licenses", {
   id: serial("id").primaryKey(),
   userId: integer("user_id"),
   key: text("key").notNull().unique(),
+  // status: "active" | "suspended" | "revoked"
+  // Note: "pending" licenses no longer created — use premiumRequestsTable instead
   status: text("status").notNull().default("active"),
   licenseType: text("license_type").default("one_tailor"),
   customerName: text("customer_name"),
@@ -40,6 +48,29 @@ export const licensesTable = pgTable("licenses", {
   phone: text("phone"),
   activationDate: timestamp("activation_date"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/**
+ * Tracks premium upgrade intent per user per product.
+ * Created at account registration. Transitions through:
+ *   pending → payment_submitted → approved / rejected
+ *
+ * A license record is ONLY created when status reaches "approved".
+ * This keeps licensesTable clean — only real, paid licenses live there.
+ *
+ * Multi-product ready: one row per (userId, licenseType) combination.
+ */
+export const premiumRequestsTable = pgTable("premium_requests", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull(),
+  licenseType: text("license_type").notNull().default("one_tailor"),
+  // pending | payment_submitted | approved | rejected | cancelled
+  status: text("status").notNull().default("pending"),
+  paymentId: integer("payment_id"),   // set when payment submitted
+  licenseId: integer("license_id"),   // set when approved
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 
 export const paymentsTable = pgTable("payments", {
@@ -86,7 +117,11 @@ export const businessProfilesTable = pgTable("business_profiles", {
   name: text("name").notNull(),
   phone: text("phone").notNull(),
   email: text("email").notNull(),
-  address: text("address").notNull(),
+  address: text("address").notNull(), // combined display string
+  city: text("city"),
+  state: text("state"),
+  landmark: text("landmark"),
+  country: text("country").default("Nigeria"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
 

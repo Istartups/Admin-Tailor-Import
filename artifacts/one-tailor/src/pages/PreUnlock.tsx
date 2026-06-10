@@ -1,23 +1,23 @@
 import { useState, useEffect, useRef } from "react";
 import { 
-  Check, Crown, Zap, Loader2, KeyRound, ExternalLink, Copy, 
-  CheckCircle2, AlertCircle, Building2, Users, Hash, ShieldCheck,
+  Check, Crown, Zap, Loader2, ExternalLink, Copy, 
+  CheckCircle2, Building2, Users, Hash, ShieldCheck,
   Phone, Mail, MapPin, ChevronRight, CreditCard, Banknote, Upload,
-  X, RefreshCw, Palette, Video, Database
+  X, RefreshCw, Palette, Video, Database, Eye, EyeOff, LogIn, Lock
 } from "lucide-react";
 import { useAppStore, type BusinessProfile } from "@/store/useAppStore";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
+import { useLocation, useRoute } from "wouter";
 import { getDeviceId, validateName, validatePhone } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 
 const PREMIUM_FEATURES = [
-  { title: "Full Client Database", desc: "Unlimited customer measurements & history on your device", icon: Users },
-  { title: "Professional Branding", desc: "Automatic color extraction & brand themes for all tools", icon: Palette },
-  { title: "Smart Media Suite", desc: "High-definition video & image tools with brand watermarks", icon: Zap },
-  { title: "Advanced Media Suite", desc: "Custom video resizing, watermarking & social exports", icon: Video },
-  { title: "Financial Dashboard", desc: "Track profit, fabric costs & business expenses", icon: ShieldCheck },
-  { title: "Secure Data Backup", desc: "Export and import your data safely across devices", icon: Database },
+  { title: "Full Client Database", desc: "Unlimited customer measurements & history", icon: Users },
+  { title: "Professional Branding", desc: "Auto color extraction & brand themes", icon: Palette },
+  { title: "Smart Media Suite", desc: "High-definition video & image tools", icon: Zap },
+  { title: "Advanced Video Tools", desc: "Custom resizing, watermarking & social exports", icon: Video },
+  { title: "Financial Dashboard", desc: "Track profit, fabric costs & expenses", icon: ShieldCheck },
+  { title: "Secure Data Backup", desc: "Export and import data safely across devices", icon: Database },
 ];
 
 interface PaymentSettings {
@@ -34,40 +34,56 @@ interface PaymentSettings {
   isDebugMode?: boolean;
 }
 
-type Step = "features" | "profile" | "payment_method" | "paystack" | "manual" | "success" | "pending";
+type Step = "features" | "create_account" | "business_details" | "payment_method" | "paystack" | "manual" | "success" | "pending";
 
 export default function PreUnlock() {
-  const isPremium = useAppStore((s) => s.isPremium);
-  const licenseKey = useAppStore((s) => s.licenseKey);
-  const businessProfile = useAppStore((s) => s.businessProfile);
+  const isPremium      = useAppStore((s) => s.isPremium);
+  const account        = useAppStore((s) => s.account);
+  const setAccount     = useAppStore((s) => s.setAccount);
+  const setIsPremium   = useAppStore((s) => s.setIsPremium);
+  const businessProfile   = useAppStore((s) => s.businessProfile);
   const setBusinessProfile = useAppStore((s) => s.setBusinessProfile);
-  const setIsPremium = useAppStore((s) => s.setIsPremium);
-  
-  const { toast } = useToast();
-  const [, setLocation] = useLocation();
+  const setPendingPremiumRequest = useAppStore((s) => s.setPendingPremiumRequest);
 
-  // Skip the profile step if the user already has a business profile saved
-  const [step, setStep] = useState<Step>(businessProfile ? "features" : "profile");
+  const { toast } = useToast();
+  const [, navigate] = useLocation();
+  const [, params] = useRoute("/pre-unlock/:sub");
+  const subRoute = (params as any)?.sub as string | undefined;
+
+  const getInitialStep = (): Step => {
+    if (subRoute === "success") return "success";
+    if (account) return "features"; // logged in → show features then payment
+    return "features";
+  };
+
+  const [step, setStep] = useState<Step>(getInitialStep);
   const [settings, setSettings] = useState<PaymentSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [recoveryMode, setRecoveryMode] = useState(false);
-  const [recoveryInput, setRecoveryInput] = useState("");
 
-  // Form State - Pulling from Brand Kit
+  // ─── Form State ───────────────────────────────────────────────────────────
   const [form, setForm] = useState({
-    name: businessProfile?.name || "",
-    phone: businessProfile?.phone || "",
-    email: businessProfile?.email || "",
-    street: businessProfile?.addressDetails?.street || "",
-    city: businessProfile?.addressDetails?.city || "",
-    state: businessProfile?.addressDetails?.state || "",
+    // Page 1: Account credentials
+    name: businessProfile?.name || account?.businessName || "",
+    phone: businessProfile?.phone || account?.phone || "",
+    email: businessProfile?.email || account?.email || "",
+    password: "",
+    confirmPassword: "",
+    // Page 2: Location details
+    city:     businessProfile?.addressDetails?.city || "",
+    state:    businessProfile?.addressDetails?.state || "",
     landmark: businessProfile?.addressDetails?.landmark || "",
-    country: businessProfile?.addressDetails?.country || "Nigeria"
+    country:  businessProfile?.addressDetails?.country || "Nigeria",
   });
 
-  // Manual Payment State
-  const [evidence, setEvidence] = useState<File | null>(null);
+  const [showPassword, setShowPassword]        = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [emailAvailable, setEmailAvailable]    = useState<boolean | null>(null);
+  const [checkingEmail, setCheckingEmail]      = useState(false);
+  const emailCheckTimer = useRef<ReturnType<typeof setTimeout>>();
+
+  // Manual payment evidence state
+  const [evidence, setEvidence]       = useState<File | null>(null);
   const [evidencePreview, setEvidencePreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -75,178 +91,195 @@ export default function PreUnlock() {
     fetchSettings();
   }, []);
 
+  // When subRoute is "success" (redirect back from Paystack), show success screen
+  useEffect(() => {
+    if (subRoute === "success") {
+      setStep("success");
+      setIsPremium(true);
+    }
+  }, [subRoute]);
+
   const fetchSettings = async () => {
     try {
       const res = await fetch("/api/payment-info");
       if (!res.ok) throw new Error("Failed to fetch settings");
       const data = await res.json();
       setSettings(data);
-    } catch (err) {
-      console.error("Failed to fetch settings", err);
+    } catch {
+      toast({ title: "Connection Error", description: "Could not load payment info.", variant: "destructive" });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
+  const checkEmailAvailability = async (email: string) => {
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setEmailAvailable(null);
+      return;
+    }
+    setCheckingEmail(true);
+    try {
+      const res = await fetch("/api/auth/check-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      setEmailAvailable(data.available);
+    } catch {
+      setEmailAvailable(null);
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  const handleEmailChange = (email: string) => {
+    setForm(f => ({ ...f, email }));
+    clearTimeout(emailCheckTimer.current);
+    emailCheckTimer.current = setTimeout(() => checkEmailAvailability(email), 600);
+  };
+
+  // ─── Step 1a: Account Details Validation ─────────────────────────────────
+
+  const handleAccountSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.phone || !form.city || !form.state || !form.landmark || !form.country) {
-      toast({ title: "Required Fields", description: "Please fill all required fields to continue.", variant: "destructive" });
-      return;
-    }
-
-    // Optional email validation
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" });
-      return;
-    }
-
     const nameVal = validateName(form.name);
-    if (!nameVal.valid) {
-      toast({ title: "Invalid Business Name", description: nameVal.message, variant: "destructive" });
-      return;
-    }
-
+    if (!nameVal.valid) { toast({ title: "Invalid Business Name", description: nameVal.message, variant: "destructive" }); return; }
     const phoneVal = validatePhone(form.phone);
-    if (!phoneVal.valid) {
-      toast({ title: "Invalid Phone", description: phoneVal.message, variant: "destructive" });
-      return;
+    if (!phoneVal.valid) { toast({ title: "Invalid Phone", description: phoneVal.message, variant: "destructive" }); return; }
+    if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      toast({ title: "Invalid Email", description: "Please enter a valid email address.", variant: "destructive" }); return;
     }
+    if (emailAvailable === false) {
+      toast({ title: "Email Taken", description: "This email already has an account. Please login.", variant: "destructive" }); return;
+    }
+    if (!form.password || form.password.length < 6) {
+      toast({ title: "Weak Password", description: "Password must be at least 6 characters.", variant: "destructive" }); return;
+    }
+    if (form.password !== form.confirmPassword) {
+      toast({ title: "Passwords Don't Match", description: "Please re-enter your password.", variant: "destructive" }); return;
+    }
+    setStep("business_details");
+  };
 
+  // ─── Step 1b: Register & Proceed to Payment ───────────────────────────────
+
+  const handleRegisterAndProceed = async (e: React.FormEvent) => {
+    e.preventDefault();
     setProcessing(true);
     try {
-      // Pull existing details if available, or start fresh
-      const newAddressDetails = {
-        ...businessProfile?.addressDetails,
-        street: form.street,
-        city: form.city,
-        state: form.state,
-        landmark: form.landmark,
-        country: form.country
-      };
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deviceId: getDeviceId(),
+          businessName: form.name,
+          phone: form.phone,
+          email: form.email,
+          password: form.password,
+          city: form.city || undefined,
+          state: form.state || undefined,
+          landmark: form.landmark || undefined,
+          country: form.country || "Nigeria",
+        }),
+      });
+      const data = await res.json();
 
-      const combinedAddress = `${newAddressDetails.street ? newAddressDetails.street + ', ' : ''}${newAddressDetails.city}, ${newAddressDetails.state}${newAddressDetails.landmark ? ' (Near ' + newAddressDetails.landmark + ')' : ''}, ${newAddressDetails.country}`;
+      if (!res.ok) {
+        if (data.shouldLogin) {
+          toast({ title: "Account Exists", description: "This email is already registered. Please login.", variant: "destructive" });
+          navigate("/account-login");
+          return;
+        }
+        toast({ title: "Registration Failed", description: data.message, variant: "destructive" });
+        return;
+      }
 
-      // Update local store
+      localStorage.setItem("user_token", data.token);
+      setAccount(data.user);
+
+      // Update local business profile too
+      const combinedAddress = [form.city, form.state, form.country].filter(Boolean).join(", ");
       setBusinessProfile({
         name: form.name,
         phone: form.phone,
         email: form.email,
         address: combinedAddress,
-        addressDetails: newAddressDetails,
+        addressDetails: { city: form.city, state: form.state, landmark: form.landmark, country: form.country },
         socials: businessProfile?.socials,
-        brandColors: businessProfile?.brandColors
+        brandColors: businessProfile?.brandColors,
       });
 
-      setStep("features");
-    } catch (e) {
-      toast({ title: "Error", description: "Failed to save profile. Try again.", variant: "destructive" });
+      toast({ title: "Account Created! ✅", description: "Now choose your payment method." });
+      setStep("payment_method");
+    } catch {
+      toast({ title: "Network Error", description: "Could not complete registration. Please try again.", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
   };
 
+  // ─── Paystack Payment ─────────────────────────────────────────────────────
+
   const handlePaystackInit = async () => {
     if (!settings?.paystackPublicKey) return;
-    
     setProcessing(true);
     try {
+      const userDeviceId = account?.deviceId || getDeviceId();
+      const userEmail    = account?.email || form.email;
       const res = await fetch("/api/payment/paystack/initialize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          deviceId: getDeviceId(),
-          email: form.email,
-          amount: settings.price
-        })
+        body: JSON.stringify({ deviceId: userDeviceId, email: userEmail, amount: settings.price }),
       });
       const data = await res.json();
-      
       if (data.status && data.data.authorization_url) {
         window.location.href = data.data.authorization_url;
       } else {
         throw new Error("Paystack initialization failed");
       }
-    } catch (err) {
+    } catch {
       toast({ title: "Payment Error", description: "Could not start Paystack payment.", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
   };
 
+  // ─── Manual Payment Submission ────────────────────────────────────────────
+
   const handleManualSubmit = async () => {
     if (!evidence) return;
     setProcessing(true);
     try {
       const formData = new FormData();
-      formData.append("deviceId", getDeviceId());
+      formData.append("deviceId", account?.deviceId || getDeviceId());
       formData.append("evidence", evidence);
       formData.append("amount", (settings?.price || 15000).toString());
 
-      const res = await fetch("/api/payment/manual", {
-        method: "POST",
-        body: formData,
-      });
-
+      const res = await fetch("/api/payment/manual", { method: "POST", body: formData });
       if (res.ok) {
+        setPendingPremiumRequest(true);
         setStep("pending");
       } else {
         const err = await res.json();
-        let errorMsg = err.message || "Failed to submit evidence. Please try again.";
-        
-        // Show detailed error if in debug mode
-        if (settings?.isDebugMode && err.error) {
-          errorMsg = `DEBUG: ${err.error}\n\n${errorMsg}`;
-        }
-        
-        toast({ 
-          title: "Error", 
-          description: errorMsg, 
-          variant: "destructive" 
-        });
+        toast({ title: "Error", description: err.message || "Failed to submit evidence.", variant: "destructive" });
       }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "Network error. Please try again.";
-      toast({ 
-        title: "Error", 
-        description: settings?.isDebugMode ? `DEBUG: ${msg}` : "Network error. Please try again.", 
-        variant: "destructive" 
-      });
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const handleRecover = async () => {
-    if (!recoveryInput) return;
-    setProcessing(true);
-    try {
-      const res = await fetch("/api/license/recover", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ identifier: recoveryInput, deviceId: getDeviceId() })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setIsPremium(true, data.license.key);
-        toast({ title: "License Recovered!", description: "Premium access restored." });
-        setStep("success");
-      } else {
-        toast({ title: "Recovery Failed", description: data.message, variant: "destructive" });
-      }
-    } catch (err) {
-      toast({ title: "Error", description: "Check your connection.", variant: "destructive" });
+    } catch {
+      toast({ title: "Error", description: "Network error. Please try again.", variant: "destructive" });
     } finally {
       setProcessing(false);
     }
   };
 
   const formatPrice = (p: number) => {
-    return new Intl.NumberFormat('en-NG', { 
-      style: 'currency', 
-      currency: settings?.currencyCode || 'NGN' 
-    }).format(p).replace(settings?.currencyCode || 'NGN', settings?.currencySymbol || '₦');
+    return new Intl.NumberFormat("en-NG", {
+      style: "currency",
+      currency: settings?.currencyCode || "NGN",
+    }).format(p).replace(settings?.currencyCode || "NGN", settings?.currencySymbol || "₦");
   };
+
+  const inputClass = "w-full pl-11 pr-4 py-3.5 rounded-2xl bg-card border border-border outline-none focus:border-primary transition-colors text-sm";
+  const labelClass = "text-xs font-bold uppercase tracking-wider text-muted-foreground";
 
   if (loading) {
     return (
@@ -264,11 +297,11 @@ export default function PreUnlock() {
           <ShieldCheck size={40} className="text-primary" />
         </div>
         <h1 className="text-2xl font-bold">Premium Active</h1>
-        <p className="text-muted-foreground">Your professional license is active. All tools are unlocked.</p>
-        <div className="p-4 bg-card border border-border rounded-2xl font-mono text-sm">
-          {licenseKey}
-        </div>
-        <button onClick={() => setLocation("/home")} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">
+        <p className="text-muted-foreground">All professional tools are unlocked.</p>
+        {account && (
+          <p className="text-sm text-muted-foreground">Signed in as <b>{account.email}</b></p>
+        )}
+        <button onClick={() => navigate("/home")} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">
           Continue to Toolkit
         </button>
       </div>
@@ -278,9 +311,10 @@ export default function PreUnlock() {
   return (
     <div className="max-w-xl mx-auto px-4 pb-20 pt-6">
       <AnimatePresence mode="wait">
-        {/* STEP 0: FEATURES */}
-        {step === "features" && !recoveryMode && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
+
+        {/* ── FEATURES / INTRO SCREEN ────────────────────────────────────────── */}
+        {step === "features" && (
+          <motion.div key="features" initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="space-y-6">
             <div className="relative overflow-hidden px-6 py-10 rounded-3xl bg-slate-950 border border-primary/20 shadow-2xl">
               <div className="absolute -top-10 -right-10 w-40 h-40 bg-primary/10 rounded-full blur-3xl" />
               <div className="relative text-center space-y-4">
@@ -288,7 +322,7 @@ export default function PreUnlock() {
                   <Crown size={32} className="text-primary" />
                 </div>
                 <h1 className="text-3xl font-bold text-white">⭐ Unlock Premium</h1>
-                <p className="text-slate-400">Unlock professional features and work 100% offline.</p>
+                <p className="text-slate-400">Professional tools for serious tailors.</p>
                 <div className="text-3xl font-black text-primary">{formatPrice(settings?.price || 15000)}</div>
                 <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">One-time payment · Lifetime access</p>
               </div>
@@ -309,155 +343,213 @@ export default function PreUnlock() {
             </div>
 
             <div className="space-y-3">
-              <button onClick={() => setStep("payment_method")} className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 active:scale-[0.98] transition-all">
-                Get Started
-              </button>
-              <div className="flex flex-col gap-1">
-                <button onClick={() => setRecoveryMode(true)} className="w-full py-2 text-sm font-semibold text-muted-foreground flex items-center justify-center gap-2">
-                  <RefreshCw size={14} /> Restore License / Device Change
-                </button>
-                <button onClick={() => setStep("profile")} className="w-full py-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 hover:text-primary transition-colors">
-                  Edit Business Profile
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* RECOVERY MODE */}
-        {recoveryMode && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 pt-10">
-            <div className="text-center space-y-2">
-              <KeyRound size={40} className="mx-auto text-primary mb-4" />
-              <h2 className="text-xl font-bold">Restore License</h2>
-              <p className="text-sm text-muted-foreground">Enter your email or license key to restore access on this device.</p>
-            </div>
-            <div className="space-y-4">
-              <div className="relative">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                <input 
-                  type="text" 
-                  placeholder="Email or License Key" 
-                  value={recoveryInput}
-                  onChange={(e) => setRecoveryInput(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 rounded-2xl bg-card border border-border focus:border-primary outline-none"
-                />
-              </div>
-              <button 
-                onClick={handleRecover}
-                disabled={processing || !recoveryInput}
-                className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold disabled:opacity-50"
+              <button
+                onClick={() => account ? setStep("payment_method") : setStep("create_account")}
+                className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
               >
-                {processing ? <Loader2 className="animate-spin mx-auto" /> : "Restore Access"}
+                {account ? "Choose Payment Method" : "Get Started"}
               </button>
-              <button onClick={() => setRecoveryMode(false)} className="w-full text-sm text-muted-foreground">
-                Back to Unlock Premium
+              <button
+                onClick={() => navigate("/account-login")}
+                className="w-full py-2 text-sm font-semibold text-muted-foreground flex items-center justify-center gap-2"
+              >
+                <LogIn size={14} /> Already have an account? Login
               </button>
             </div>
           </motion.div>
         )}
 
-        {/* STEP 1: PROFILE FORM */}
-        {step === "profile" && (
-          <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="space-y-6">
+        {/* ── STEP 1a: CREATE ACCOUNT ────────────────────────────────────────── */}
+        {step === "create_account" && (
+          <motion.div key="create_account" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-6">
             <div className="space-y-1">
-              <h2 className="text-2xl font-bold">Business Information</h2>
-              <p className="text-sm text-muted-foreground">We need this to generate your official license.</p>
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex gap-1">
+                  <div className="w-6 h-1.5 rounded-full bg-primary" />
+                  <div className="w-6 h-1.5 rounded-full bg-muted" />
+                </div>
+                <span className="text-xs text-muted-foreground">Step 1 of 2</span>
+              </div>
+              <h2 className="text-2xl font-bold">Create Account</h2>
+              <p className="text-sm text-muted-foreground">Your account lets you restore premium on any device.</p>
             </div>
 
-            <form onSubmit={handleProfileSubmit} className="space-y-4">
+            <form onSubmit={handleAccountSubmit} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Business Name</label>
+                <label className={labelClass}>Business Name</label>
                 <div className="relative">
-                  <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                  <input required type="text" placeholder="e.g. Joyful Stitches" value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-card border border-border outline-none focus:border-primary" />
+                  <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <input
+                    required type="text" placeholder="e.g. Joyful Stitches"
+                    value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                    className={inputClass}
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Phone Number</label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <input 
-                      required 
-                      type="tel" 
-                      placeholder="080..." 
-                      value={form.phone} 
-                      onChange={e => setForm({...form, phone: e.target.value.replace(/[^0-9+]/g, '')})} 
-                      className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-card border border-border outline-none focus:border-primary" 
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Email Address</label>
-                  <div className="relative">
-                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <input type="email" placeholder="you@example.com (Optional)" value={form.email} onChange={e => setForm({...form, email: e.target.value})} className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-card border border-border outline-none focus:border-primary" />
-                  </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Phone Number</label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <input
+                    required type="tel" placeholder="080..."
+                    value={form.phone}
+                    onChange={e => setForm(f => ({ ...f, phone: e.target.value.replace(/[^0-9+]/g, "") }))}
+                    className={inputClass}
+                  />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground ml-1">City</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <input required type="text" placeholder="e.g. Lagos" value={form.city} onChange={e => setForm({...form, city: e.target.value})} className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-card border border-border outline-none focus:border-primary" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground ml-1">State</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <input required type="text" placeholder="e.g. Ikeja" value={form.state} onChange={e => setForm({...form, state: e.target.value})} className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-card border border-border outline-none focus:border-primary" />
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Landmark</label>
-                  <div className="relative">
-                    <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <input required type="text" placeholder="e.g. Near City Mall" value={form.landmark} onChange={e => setForm({...form, landmark: e.target.value})} className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-card border border-border outline-none focus:border-primary" />
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Country</label>
-                  <div className="relative">
-                    <Hash className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={18} />
-                    <input required type="text" placeholder="Nigeria" value={form.country} onChange={e => setForm({...form, country: e.target.value})} className="w-full pl-12 pr-4 py-3.5 rounded-2xl bg-card border border-border outline-none focus:border-primary" />
-                  </div>
+              <div className="space-y-1.5">
+                <label className={labelClass}>Email Address</label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <input
+                    required type="email" placeholder="you@example.com"
+                    value={form.email} onChange={e => handleEmailChange(e.target.value)}
+                    className={`${inputClass} ${emailAvailable === false ? "border-red-500" : emailAvailable === true ? "border-emerald-500" : ""}`}
+                  />
+                  {checkingEmail && <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" size={14} />}
+                  {!checkingEmail && emailAvailable === false && (
+                    <p className="text-xs text-red-500 mt-1 ml-1">Email already registered. <button type="button" onClick={() => navigate("/account-login")} className="underline font-bold">Login instead</button></p>
+                  )}
+                  {!checkingEmail && emailAvailable === true && (
+                    <p className="text-xs text-emerald-500 mt-1 ml-1">✓ Email available</p>
+                  )}
                 </div>
               </div>
 
-              <div className="pt-4 flex gap-3">
-                <button type="button" onClick={() => businessProfile ? setStep("features") : setLocation("/home")} className="flex-1 py-4 bg-secondary text-secondary-foreground rounded-2xl font-bold">
-                  Cancel
+              <div className="space-y-1.5">
+                <label className={labelClass}>Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <input
+                    required type={showPassword ? "text" : "password"} placeholder="At least 6 characters"
+                    value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                    className={`${inputClass} pr-11`}
+                  />
+                  <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={labelClass}>Confirm Password</label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                  <input
+                    required type={showConfirmPassword ? "text" : "password"} placeholder="Repeat password"
+                    value={form.confirmPassword} onChange={e => setForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                    className={`${inputClass} pr-11 ${form.confirmPassword && form.password !== form.confirmPassword ? "border-red-500" : ""}`}
+                  />
+                  <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                {form.confirmPassword && form.password !== form.confirmPassword && (
+                  <p className="text-xs text-red-500 ml-1">Passwords don't match</p>
+                )}
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setStep("features")} className="flex-1 py-4 bg-secondary text-secondary-foreground rounded-2xl font-bold">Back</button>
+                <button type="submit" className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2">
+                  Continue <ChevronRight size={18} />
                 </button>
-                <button type="submit" disabled={processing} className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2">
-                  {processing ? <Loader2 className="animate-spin" /> : <>⭐ Unlock Premium <ChevronRight size={18} /></>}
+              </div>
+
+              <div className="text-center">
+                <button type="button" onClick={() => navigate("/account-login")} className="text-sm text-muted-foreground">
+                  Already have an account? <span className="text-primary font-semibold">Login</span>
                 </button>
               </div>
             </form>
           </motion.div>
         )}
 
-        {/* STEP 2: PAYMENT METHOD */}
+        {/* ── STEP 1b: BUSINESS LOCATION ─────────────────────────────────────── */}
+        {step === "business_details" && (
+          <motion.div key="business_details" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }} className="space-y-6">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="flex gap-1">
+                  <div className="w-6 h-1.5 rounded-full bg-primary" />
+                  <div className="w-6 h-1.5 rounded-full bg-primary" />
+                </div>
+                <span className="text-xs text-muted-foreground">Step 2 of 2</span>
+              </div>
+              <h2 className="text-2xl font-bold">Business Location</h2>
+              <p className="text-sm text-muted-foreground">Helps us issue your official record. You're almost there!</p>
+            </div>
+
+            <form onSubmit={handleRegisterAndProceed} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className={labelClass}>City</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                    <input type="text" placeholder="Lagos" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                      className="w-full pl-9 pr-3 py-3 rounded-xl bg-card border border-border outline-none focus:border-primary text-sm" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label className={labelClass}>State</label>
+                  <div className="relative">
+                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                    <input type="text" placeholder="Ikeja" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                      className="w-full pl-9 pr-3 py-3 rounded-xl bg-card border border-border outline-none focus:border-primary text-sm" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={labelClass}>Nearest Landmark (Optional)</label>
+                <div className="relative">
+                  <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                  <input type="text" placeholder="e.g. Near City Mall" value={form.landmark}
+                    onChange={e => setForm(f => ({ ...f, landmark: e.target.value }))}
+                    className={inputClass} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className={labelClass}>Country</label>
+                <div className="relative">
+                  <Hash className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
+                  <input type="text" placeholder="Nigeria" value={form.country}
+                    onChange={e => setForm(f => ({ ...f, country: e.target.value }))}
+                    className={inputClass} />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setStep("create_account")} className="flex-1 py-4 bg-secondary text-secondary-foreground rounded-2xl font-bold">Back</button>
+                <button type="submit" disabled={processing} className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">
+                  {processing ? <Loader2 className="animate-spin" size={18} /> : <><Crown size={18} /> Register & Continue</>}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+
+        {/* ── STEP 2: PAYMENT METHOD ─────────────────────────────────────────── */}
         {step === "payment_method" && (
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6">
+          <motion.div key="payment_method" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="space-y-6">
             <div className="text-center space-y-2">
               <h2 className="text-2xl font-bold">Select Payment Method</h2>
-              <p className="text-sm text-muted-foreground">Total to pay: <span className="font-bold text-foreground">{formatPrice(settings?.price || 0)}</span></p>
+              <p className="text-sm text-muted-foreground">Total: <span className="font-bold text-foreground">{formatPrice(settings?.price || 0)}</span></p>
+              {account && (
+                <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-400 text-xs font-bold px-3 py-1.5 rounded-full border border-emerald-500/20">
+                  <Check size={12} /> Account: {account.email}
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
               {settings?.isPaystackEnabled && (
                 <button onClick={() => setStep("paystack")} className="w-full p-6 bg-card border border-border rounded-3xl flex items-center gap-4 hover:border-primary/50 transition-all active:scale-[0.98] group">
-                  <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500">
-                    <CreditCard size={24} />
-                  </div>
+                  <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center text-emerald-500"><CreditCard size={24} /></div>
                   <div className="text-left flex-1">
                     <p className="font-bold text-lg">Paystack</p>
                     <p className="text-xs text-muted-foreground">Pay with Card, Bank Transfer, or USSD</p>
@@ -465,12 +557,9 @@ export default function PreUnlock() {
                   <ChevronRight size={20} className="text-muted-foreground group-hover:text-primary" />
                 </button>
               )}
-
               {settings?.isManualEnabled && (
                 <button onClick={() => setStep("manual")} className="w-full p-6 bg-card border border-border rounded-3xl flex items-center gap-4 hover:border-primary/50 transition-all active:scale-[0.98] group">
-                  <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500">
-                    <Banknote size={24} />
-                  </div>
+                  <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center text-blue-500"><Banknote size={24} /></div>
                   <div className="text-left flex-1">
                     <p className="font-bold text-lg">Manual Transfer</p>
                     <p className="text-xs text-muted-foreground">Transfer to our bank and upload receipt</p>
@@ -484,20 +573,18 @@ export default function PreUnlock() {
           </motion.div>
         )}
 
-        {/* STEP 3: PAYSTACK */}
+        {/* ── STEP 3: PAYSTACK CONFIRM ──────────────────────────────────────── */}
         {step === "paystack" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 text-center py-10">
+          <motion.div key="paystack" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 text-center py-10">
             <div className="w-20 h-20 bg-emerald-500/10 rounded-3xl flex items-center justify-center mx-auto mb-4">
               <CreditCard size={40} className="text-emerald-500" />
             </div>
             <h2 className="text-2xl font-bold">Secure Checkout</h2>
-            <p className="text-muted-foreground">You will be redirected to Paystack's secure payment gateway.</p>
-            
+            <p className="text-muted-foreground">You'll be redirected to Paystack's secure gateway.</p>
             <div className="p-4 bg-muted/50 rounded-2xl text-left space-y-2">
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Amount</span> <span className="font-bold">{formatPrice(settings?.price || 0)}</span></div>
-              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Email</span> <span className="font-bold">{form.email}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Amount</span><span className="font-bold">{formatPrice(settings?.price || 0)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-muted-foreground">Email</span><span className="font-bold">{account?.email || form.email}</span></div>
             </div>
-
             <div className="flex gap-3">
               <button onClick={() => setStep("payment_method")} className="flex-1 py-4 bg-secondary rounded-2xl font-bold">Cancel</button>
               <button onClick={handlePaystackInit} disabled={processing} className="flex-[2] py-4 bg-emerald-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2">
@@ -507,32 +594,31 @@ export default function PreUnlock() {
           </motion.div>
         )}
 
-        {/* STEP 3: MANUAL */}
+        {/* ── STEP 3b: MANUAL PAYMENT ───────────────────────────────────────── */}
         {step === "manual" && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+          <motion.div key="manual" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <div className="p-6 bg-primary/5 border border-primary/20 rounded-3xl space-y-4">
               <div className="flex items-center gap-3">
                 <Banknote className="text-primary" />
                 <h2 className="font-bold text-lg">Bank Transfer Details</h2>
               </div>
               <div className="space-y-3">
-                <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20 flex flex-col items-center justify-center text-center space-y-1">
+                <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20 flex flex-col items-center text-center space-y-1">
                   <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Amount to Pay</p>
                   <p className="text-3xl font-black text-primary">{formatPrice(settings?.price || 15000)}</p>
                 </div>
-
-                <div className="flex justify-between items-center p-3 bg-card rounded-xl border border-border">
-                  <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Bank Name</p><p className="font-bold">{settings?.bankName}</p></div>
-                  <button onClick={() => { navigator.clipboard.writeText(settings?.bankName || ""); toast({ title: "Copied!" }); }}><Copy size={16} className="text-primary" /></button>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-card rounded-xl border border-border">
-                  <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Account Number</p><p className="font-bold text-lg tracking-wider">{settings?.accountNumber}</p></div>
-                  <button onClick={() => { navigator.clipboard.writeText(settings?.accountNumber || ""); toast({ title: "Copied!" }); }}><Copy size={16} className="text-primary" /></button>
-                </div>
-                <div className="flex justify-between items-center p-3 bg-card rounded-xl border border-border">
-                  <div><p className="text-[10px] text-muted-foreground uppercase font-bold">Account Name</p><p className="font-bold">{settings?.accountName}</p></div>
-                  <button onClick={() => { navigator.clipboard.writeText(settings?.accountName || ""); toast({ title: "Copied!" }); }}><Copy size={16} className="text-primary" /></button>
-                </div>
+                {[
+                  { label: "Bank Name", value: settings?.bankName },
+                  { label: "Account Number", value: settings?.accountNumber },
+                  { label: "Account Name", value: settings?.accountName },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex justify-between items-center p-3 bg-card rounded-xl border border-border">
+                    <div><p className="text-[10px] text-muted-foreground uppercase font-bold">{label}</p><p className="font-bold text-sm">{value}</p></div>
+                    <button onClick={() => { navigator.clipboard.writeText(value || ""); toast({ title: "Copied!" }); }}>
+                      <Copy size={16} className="text-primary" />
+                    </button>
+                  </div>
+                ))}
               </div>
               <p className="text-xs text-muted-foreground leading-relaxed italic">{settings?.instructions}</p>
             </div>
@@ -545,17 +631,13 @@ export default function PreUnlock() {
                   <p className="text-sm font-medium text-muted-foreground">Tap to upload proof</p>
                   <input ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden" onChange={e => {
                     const f = e.target.files?.[0];
-                    if (f) {
-                      setEvidence(f);
-                      if (f.type.startsWith('image/')) setEvidencePreview(URL.createObjectURL(f));
-                      else setEvidencePreview('pdf');
-                    }
+                    if (f) { setEvidence(f); if (f.type.startsWith("image/")) setEvidencePreview(URL.createObjectURL(f)); else setEvidencePreview("pdf"); }
                   }} />
                 </div>
               ) : (
                 <div className="relative rounded-2xl overflow-hidden border border-border bg-card">
-                  {evidencePreview === 'pdf' ? (
-                    <div className="h-40 flex items-center justify-center bg-slate-100 dark:bg-slate-900"><p className="font-bold">PDF Document Selected</p></div>
+                  {evidencePreview === "pdf" ? (
+                    <div className="h-40 flex items-center justify-center"><p className="font-bold">PDF Selected</p></div>
                   ) : (
                     <img src={evidencePreview} className="w-full h-40 object-cover" />
                   )}
@@ -566,48 +648,48 @@ export default function PreUnlock() {
 
             <div className="flex gap-3">
               <button onClick={() => setStep("payment_method")} className="flex-1 py-4 bg-secondary rounded-2xl font-bold">Back</button>
-              <button onClick={handleManualSubmit} disabled={processing || !evidence} className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2">
+              <button onClick={handleManualSubmit} disabled={processing || !evidence} className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">
                 {processing ? <Loader2 className="animate-spin" /> : "Submit Proof"}
               </button>
             </div>
           </motion.div>
         )}
 
-        {/* STEP 4: PENDING */}
+        {/* ── PENDING ───────────────────────────────────────────────────────── */}
         {step === "pending" && (
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-12 space-y-6">
+          <motion.div key="pending" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-12 space-y-6">
             <div className="w-24 h-24 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto">
               <RefreshCw size={48} className="text-blue-500 animate-spin-slow" />
             </div>
-            <div className="space-y-2">
-              <h2 className="text-2xl font-bold">Verification Pending</h2>
-              <p className="text-muted-foreground leading-relaxed">Your proof of payment has been submitted. Our admin will verify it and activate your premium status shortly.</p>
-            </div>
+            <h2 className="text-2xl font-bold">Verification Pending</h2>
+            <p className="text-muted-foreground leading-relaxed">Your proof has been submitted. We'll verify and activate your premium shortly.</p>
             <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-2xl text-sm text-blue-700 dark:text-blue-400">
-              You will receive an email once your license is activated.
+              {account?.email
+                ? <>You'll receive a confirmation at <b>{account.email}</b> once approved.</>
+                : "You'll receive an email notification once your license is activated."}
             </div>
-            <button onClick={() => setLocation("/home")} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">Back to Toolkit</button>
+            <button onClick={() => navigate("/home")} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">Back to Toolkit</button>
           </motion.div>
         )}
 
-        {/* STEP 4: SUCCESS */}
+        {/* ── SUCCESS ───────────────────────────────────────────────────────── */}
         {step === "success" && (
-          <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-12 space-y-6">
+          <motion.div key="success" initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center py-12 space-y-6">
             <div className="w-24 h-24 bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto border-4 border-emerald-500/20">
               <CheckCircle2 size={60} className="text-emerald-500" />
             </div>
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold">Premium Unlocked!</h2>
-              <p className="text-muted-foreground">Welcome to OneTailor Premium, {form.name}!</p>
+            <h2 className="text-3xl font-bold">Premium Unlocked!</h2>
+            <p className="text-muted-foreground">Welcome to OneTailor Premium{account?.businessName ? `, ${account.businessName}` : ""}!</p>
+            <div className="p-5 bg-emerald-50 dark:bg-emerald-950/30 rounded-3xl space-y-2">
+              <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">✅ Premium Access: ACTIVE</p>
+              <p className="text-xs text-muted-foreground">Log in on any device with your email to restore premium automatically.</p>
             </div>
-            <div className="p-6 bg-emerald-50 dark:bg-emerald-950/30 rounded-3xl space-y-3">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600">Your Lifetime License Key</p>
-              <div className="text-xl font-mono font-bold tracking-tighter text-emerald-700 dark:text-emerald-400 select-all">{licenseKey}</div>
-              <button onClick={() => { navigator.clipboard.writeText(licenseKey || ""); toast({ title: "Copied to clipboard" }); }} className="flex items-center gap-2 text-xs font-bold mx-auto text-emerald-600 uppercase"><Copy size={14} /> Copy Key</button>
-            </div>
-            <button onClick={() => setLocation("/home")} className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg">Start Using Premium Features</button>
+            <button onClick={() => navigate("/home")} className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg">
+              Start Using Premium Features
+            </button>
           </motion.div>
         )}
+
       </AnimatePresence>
     </div>
   );

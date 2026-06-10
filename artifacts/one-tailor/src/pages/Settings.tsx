@@ -2,7 +2,7 @@ import {
   Moon, Sun, Trash2, Info, Crown, ChevronRight, Download, Upload, RotateCcw, 
   Monitor, Palette, Save, ShieldCheck, User, Settings as SettingsIcon, Database, 
   Smartphone, Share2, Mail, Phone, MapPin, Instagram, Facebook, MessageCircle, 
-  Pipette, Loader2
+  Pipette, Loader2, LogOut, LogIn
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useLocation } from "wouter";
@@ -13,7 +13,7 @@ import { validateName, validatePhone } from "@/lib/utils";
 
 const APP_VERSION = "2.0.0";
 
-type SettingsTab = "general" | "brandkit" | "backup" | "appearance" | "about";
+type SettingsTab = "general" | "brandkit" | "backup" | "appearance" | "about" | "account";
 
 function compressImageToBase64(file: File, maxSize = 256): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -77,6 +77,9 @@ export default function Settings() {
   const licenseKey = useAppStore((s) => s.licenseKey);
   const clearData = useAppStore((s) => s.clearData);
   const appName = useAppStore((s) => s.appName);
+  const account = useAppStore((s) => s.account);
+  const logout = useAppStore((s) => s.logout);
+  const pendingPremiumRequest = useAppStore((s) => s.pendingPremiumRequest);
   const appLogo = useAppStore((s) => s.appLogo);
   const splashImage = useAppStore((s) => s.splashImage);
   const businessProfile = useAppStore((s) => s.businessProfile);
@@ -254,6 +257,7 @@ export default function Settings() {
       <div className="flex overflow-x-auto gap-1 px-4 py-2 sticky top-14 z-30 bg-background/95 backdrop-blur-md border-b border-border no-scrollbar">
         {[
           { id: "brandkit", label: "Brand Kit", icon: Palette },
+          { id: "account", label: "Account", icon: User },
           { id: "general", label: "General", icon: SettingsIcon },
           { id: "appearance", label: "Display", icon: Monitor },
           { id: "backup", label: "Backup", icon: Database },
@@ -671,6 +675,103 @@ export default function Settings() {
                   <ChevronRight size={16} />
                 </button>
              </div>
+          </div>
+        )}
+
+        {/* ACCOUNT TAB */}
+        {activeTab === "account" && (
+          <div className="space-y-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {account ? (
+              <>
+                {/* Logged-in state */}
+                <div className="bg-card border border-border rounded-3xl p-6 space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
+                      <User size={28} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-base truncate">{account.businessName || "Your Business"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{account.email}</p>
+                      {account.phone && <p className="text-xs text-muted-foreground">{account.phone}</p>}
+                    </div>
+                  </div>
+
+                  <div className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-bold ${account.isPremium ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500" : "bg-amber-500/10 border-amber-500/20 text-amber-500"}`}>
+                    <Crown size={16} />
+                    {account.isPremium ? "⭐ Premium Active — All tools unlocked" : "Free Account — Upgrade to Premium"}
+                  </div>
+
+                  {!account.isPremium && pendingPremiumRequest && (
+                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-400 font-medium">
+                      You have a pending premium request. Resume your payment below.
+                    </div>
+                  )}
+                </div>
+
+                {!account.isPremium && (
+                  <button
+                    onClick={() => setLocation("/pre-unlock")}
+                    className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20"
+                  >
+                    <Crown size={18} /> {pendingPremiumRequest ? "Resume Premium Upgrade" : "Unlock Premium"}
+                  </button>
+                )}
+
+                <div className="bg-card border border-border rounded-3xl overflow-hidden">
+                  <button
+                    onClick={() => {
+                      logout();
+                      toast({ title: "Logged out", description: "Your session has been cleared." });
+                    }}
+                    className="w-full flex items-center gap-4 px-6 py-4 text-red-500 hover:bg-red-500/5 transition-colors"
+                  >
+                    <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center">
+                      <LogOut size={18} className="text-red-500" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold">Logout</p>
+                      <p className="text-xs text-muted-foreground">Sign out of your account</p>
+                    </div>
+                  </button>
+                </div>
+
+                <p className="text-xs text-muted-foreground text-center">
+                  Premium is restored automatically when you log in on any device.
+                </p>
+              </>
+            ) : (
+              <>
+                {/* Logged-out state */}
+                <div className="bg-card border border-border rounded-3xl p-6 text-center space-y-4">
+                  <div className="w-16 h-16 rounded-2xl bg-muted flex items-center justify-center mx-auto">
+                    <User size={32} className="text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-lg">No Account Linked</h3>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Create a premium account to restore your access on any device automatically.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setLocation("/account-login")}
+                      className="w-full py-3.5 flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl font-bold"
+                    >
+                      <LogIn size={16} /> Login to Account
+                    </button>
+                    <button
+                      onClick={() => setLocation("/pre-unlock")}
+                      className="w-full py-3.5 flex items-center justify-center gap-2 border border-primary/30 text-primary rounded-xl font-bold text-sm hover:bg-primary/5 transition-colors"
+                    >
+                      <Crown size={16} /> Create Premium Account
+                    </button>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Free tools are always available without an account.
+                </p>
+              </>
+            )}
           </div>
         )}
 

@@ -9,6 +9,7 @@ import PaymentSettings from "./pages/PaymentSettings";
 import LicenseManagement from "./pages/LicenseManagement";
 import Broadcast from "./pages/Broadcast";
 import DeployGuide from "./pages/DeployGuide";
+import Accounts from "./pages/Accounts";
 import { Toaster } from "./components/ui/toaster";
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -24,64 +25,37 @@ export default function App() {
       <Switch>
         <Route path="/login" component={Login} />
         <Route path="/">
-          <PrivateRoute>
-            <Redirect to="/overview" />
-          </PrivateRoute>
+          <PrivateRoute><Redirect to="/overview" /></PrivateRoute>
         </Route>
         <Route path="/overview">
-          <PrivateRoute>
-            <Dashboard>
-              <Overview />
-            </Dashboard>
-          </PrivateRoute>
+          <PrivateRoute><Dashboard><Overview /></Dashboard></PrivateRoute>
+        </Route>
+        <Route path="/accounts">
+          <PrivateRoute><Dashboard><Accounts /></Dashboard></PrivateRoute>
         </Route>
         <Route path="/payment">
-          <PrivateRoute>
-            <Dashboard>
-              <Payment />
-            </Dashboard>
-          </PrivateRoute>
+          <PrivateRoute><Dashboard><Payment /></Dashboard></PrivateRoute>
         </Route>
         <Route path="/payment-settings">
-          <PrivateRoute>
-            <Dashboard>
-              <PaymentSettings />
-            </Dashboard>
-          </PrivateRoute>
+          <PrivateRoute><Dashboard><PaymentSettings /></Dashboard></PrivateRoute>
         </Route>
         <Route path="/settings">
-          <PrivateRoute>
-            <Dashboard>
-              <Settings />
-            </Dashboard>
-          </PrivateRoute>
+          <PrivateRoute><Dashboard><Settings /></Dashboard></PrivateRoute>
         </Route>
         <Route path="/licenses">
-          <PrivateRoute>
-            <Dashboard>
-              <LicenseManagement />
-            </Dashboard>
-          </PrivateRoute>
+          <PrivateRoute><Dashboard><LicenseManagement /></Dashboard></PrivateRoute>
         </Route>
         <Route path="/broadcast">
-          <PrivateRoute>
-            <Dashboard>
-              <Broadcast />
-            </Dashboard>
-          </PrivateRoute>
+          <PrivateRoute><Dashboard><Broadcast /></Dashboard></PrivateRoute>
         </Route>
         <Route path="/deploy-guide">
-          <PrivateRoute>
-            <Dashboard>
-              <DeployGuide />
-            </Dashboard>
-          </PrivateRoute>
+          <PrivateRoute><Dashboard><DeployGuide /></Dashboard></PrivateRoute>
         </Route>
         <Route>
           <div className="flex items-center justify-center min-h-screen">
             <div className="text-center">
               <h1 className="text-4xl font-bold mb-4">404</h1>
-              <p className="text-xl text-muted-foreground mb-4">Page Not Found in Admin Portal</p>
+              <p className="text-xl text-muted-foreground mb-4">Page Not Found</p>
               <Redirect to="/" />
             </div>
           </div>

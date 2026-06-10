@@ -8,33 +8,35 @@ import SplashScreen from "@/components/SplashScreen";
 import PWAInstallPrompt from "@/components/PWAInstallPrompt";
 import { useSearch } from "@/hooks/use-search";
 
-const Home                       = lazy(() => import("@/pages/Home"));
-const AllTools                   = lazy(() => import("@/pages/AllTools"));
-const Watermark                  = lazy(() => import("@/pages/Watermark"));
-const Converter                  = lazy(() => import("@/pages/Converter"));
-const Compressor                 = lazy(() => import("@/pages/Compressor"));
-const WhatsAppLink               = lazy(() => import("@/pages/WhatsAppLink"));
-const Profit                     = lazy(() => import("@/pages/Profit"));
-const PreUnlock                  = lazy(() => import("@/pages/PreUnlock"));
-const Settings                   = lazy(() => import("@/pages/Settings"));
-const FabricCost                 = lazy(() => import("@/pages/FabricCost"));
-const BeforeAfter                = lazy(() => import("@/pages/BeforeAfter"));
-const FlyerResizer               = lazy(() => import("@/pages/FlyerResizer"));
-const TestimonialCard            = lazy(() => import("@/pages/TestimonialCard"));
-const VideoCompressor           = lazy(() => import("@/pages/VideoCompressor"));
-const VideoResizer              = lazy(() => import("@/pages/VideoResizer"));
-const SocialVideoResizer        = lazy(() => import("@/pages/SocialVideoResizer"));
-const VideoBackgroundRemover    = lazy(() => import("@/pages/VideoBackgroundRemover"));
-const DeliveryDateCalculator     = lazy(() => import("@/pages/DeliveryDateCalculator"));
-const MeasurementChecker         = lazy(() => import("@/pages/MeasurementChecker"));
+const Home                        = lazy(() => import("@/pages/Home"));
+const AllTools                    = lazy(() => import("@/pages/AllTools"));
+const Watermark                   = lazy(() => import("@/pages/Watermark"));
+const Converter                   = lazy(() => import("@/pages/Converter"));
+const Compressor                  = lazy(() => import("@/pages/Compressor"));
+const WhatsAppLink                = lazy(() => import("@/pages/WhatsAppLink"));
+const Profit                      = lazy(() => import("@/pages/Profit"));
+const PreUnlock                   = lazy(() => import("@/pages/PreUnlock"));
+const AccountLogin                = lazy(() => import("@/pages/AccountLogin"));
+const ResetPassword               = lazy(() => import("@/pages/ResetPassword"));
+const Settings                    = lazy(() => import("@/pages/Settings"));
+const FabricCost                  = lazy(() => import("@/pages/FabricCost"));
+const BeforeAfter                 = lazy(() => import("@/pages/BeforeAfter"));
+const FlyerResizer                = lazy(() => import("@/pages/FlyerResizer"));
+const TestimonialCard             = lazy(() => import("@/pages/TestimonialCard"));
+const VideoCompressor             = lazy(() => import("@/pages/VideoCompressor"));
+const VideoResizer                = lazy(() => import("@/pages/VideoResizer"));
+const SocialVideoResizer          = lazy(() => import("@/pages/SocialVideoResizer"));
+const VideoBackgroundRemover      = lazy(() => import("@/pages/VideoBackgroundRemover"));
+const DeliveryDateCalculator      = lazy(() => import("@/pages/DeliveryDateCalculator"));
+const MeasurementChecker          = lazy(() => import("@/pages/MeasurementChecker"));
 const FabricRequirementCalculator = lazy(() => import("@/pages/FabricRequirementCalculator"));
-const GarmentPricingAdvisor      = lazy(() => import("@/pages/GarmentPricingAdvisor"));
-const CustomerMeasurement        = lazy(() => import("@/pages/CustomerMeasurement"));
-const MeasurementCardGenerator   = lazy(() => import("@/pages/MeasurementCardGenerator"));
-const FabricColorMatcher         = lazy(() => import("@/pages/FabricColorMatcher"));
-const BackgroundRemover          = lazy(() => import("@/pages/BackgroundRemover"));
-const InviteTailors              = lazy(() => import("@/pages/InviteTailors"));
-const NotFound                   = lazy(() => import("@/pages/not-found"));
+const GarmentPricingAdvisor       = lazy(() => import("@/pages/GarmentPricingAdvisor"));
+const CustomerMeasurement         = lazy(() => import("@/pages/CustomerMeasurement"));
+const MeasurementCardGenerator    = lazy(() => import("@/pages/MeasurementCardGenerator"));
+const FabricColorMatcher          = lazy(() => import("@/pages/FabricColorMatcher"));
+const BackgroundRemover           = lazy(() => import("@/pages/BackgroundRemover"));
+const InviteTailors               = lazy(() => import("@/pages/InviteTailors"));
+const NotFound                    = lazy(() => import("@/pages/not-found"));
 
 function LoadingFallback() {
   return (
@@ -56,32 +58,35 @@ function Router() {
     <Suspense fallback={<LoadingFallback />}>
       <Switch>
         <Route path="/"><Redirect to="/home" /></Route>
-        <Route path="/home"              component={Home} />
-        <Route path="/all-tools"         component={AllToolsWithQuery} />
-        <Route path="/watermark"         component={Watermark} />
-        <Route path="/converter"         component={Converter} />
-        <Route path="/compressor"        component={Compressor} />
-        <Route path="/whatsapp-link"     component={WhatsAppLink} />
-        <Route path="/profit"            component={Profit} />
-        <Route path="/pre-unlock"        component={PreUnlock} />
-        <Route path="/fabric-cost"       component={FabricCost} />
-        <Route path="/before-after"      component={BeforeAfter} />
-        <Route path="/flyer-resizer"     component={FlyerResizer} />
-        <Route path="/testimonial-card"  component={TestimonialCard} />
-        <Route path="/settings"          component={Settings} />
-        <Route path="/video-compressor"  component={VideoCompressor} />
-        <Route path="/video-resizer"     component={VideoResizer} />
+        <Route path="/home"               component={Home} />
+        <Route path="/all-tools"          component={AllToolsWithQuery} />
+        <Route path="/watermark"          component={Watermark} />
+        <Route path="/converter"          component={Converter} />
+        <Route path="/compressor"         component={Compressor} />
+        <Route path="/whatsapp-link"      component={WhatsAppLink} />
+        <Route path="/profit"             component={Profit} />
+        <Route path="/pre-unlock"         component={PreUnlock} />
+        <Route path="/pre-unlock/:sub"    component={PreUnlock} />
+        <Route path="/account-login"      component={AccountLogin} />
+        <Route path="/reset-password"     component={ResetPassword} />
+        <Route path="/fabric-cost"        component={FabricCost} />
+        <Route path="/before-after"       component={BeforeAfter} />
+        <Route path="/flyer-resizer"      component={FlyerResizer} />
+        <Route path="/testimonial-card"   component={TestimonialCard} />
+        <Route path="/settings"           component={Settings} />
+        <Route path="/video-compressor"   component={VideoCompressor} />
+        <Route path="/video-resizer"      component={VideoResizer} />
         <Route path="/social-video-resizer" component={SocialVideoResizer} />
-        <Route path="/video-bg-remover"  component={VideoBackgroundRemover} />
-        <Route path="/delivery-date"     component={DeliveryDateCalculator} />
-        <Route path="/measurement-checker" component={MeasurementChecker} />
-        <Route path="/fabric-requirement"  component={FabricRequirementCalculator} />
-        <Route path="/price-smartly"     component={GarmentPricingAdvisor} />
+        <Route path="/video-bg-remover"   component={VideoBackgroundRemover} />
+        <Route path="/delivery-date"      component={DeliveryDateCalculator} />
+        <Route path="/measurement-checker"  component={MeasurementChecker} />
+        <Route path="/fabric-requirement"   component={FabricRequirementCalculator} />
+        <Route path="/price-smartly"      component={GarmentPricingAdvisor} />
         <Route path="/customer-measurement" component={CustomerMeasurement} />
-        <Route path="/measurement-card"  component={MeasurementCardGenerator} />
-        <Route path="/color-matcher"     component={FabricColorMatcher} />
-        <Route path="/bg-remover"        component={BackgroundRemover} />
-        <Route path="/invite"            component={InviteTailors} />
+        <Route path="/measurement-card"   component={MeasurementCardGenerator} />
+        <Route path="/color-matcher"      component={FabricColorMatcher} />
+        <Route path="/bg-remover"         component={BackgroundRemover} />
+        <Route path="/invite"             component={InviteTailors} />
         <Route component={NotFound} />
       </Switch>
     </Suspense>
@@ -89,17 +94,23 @@ function Router() {
 }
 
 function App() {
-  const darkMode = useAppStore((s) => s.darkMode);
-  const appName  = useAppStore((s) => s.appName);
+  const darkMode       = useAppStore((s) => s.darkMode);
+  const appName        = useAppStore((s) => s.appName);
   const setSystemSettings = useAppStore((s) => s.setSystemSettings);
-  const setCurrency = useAppStore((s) => s.setCurrency);
-  const setUsage = useAppStore((s) => s.setUsage);
-  const deviceId = useAppStore((s) => s.deviceId);
+  const setCurrency    = useAppStore((s) => s.setCurrency);
+  const setUsage       = useAppStore((s) => s.setUsage);
+  const deviceId       = useAppStore((s) => s.deviceId);
+  const revalidatePremium = useAppStore((s) => s.revalidatePremium);
   const [showSplash, setShowSplash] = useState(true);
   const handleSplashDone = useCallback(() => setShowSplash(false), []);
 
+  // On startup: re-validate account session from JWT if one is stored.
+  // This restores premium silently on every app open — no manual login needed.
   useEffect(() => {
-    // Fetch system settings on load
+    revalidatePremium();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     const fetchSettings = async () => {
       try {
         const url = deviceId ? `/api/payment-info?deviceId=${deviceId}` : "/api/payment-info";

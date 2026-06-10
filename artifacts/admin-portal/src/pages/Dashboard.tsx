@@ -10,9 +10,9 @@ import {
   Settings,
   Sun,
   Moon,
-  FileText,
   BookOpen,
-  Bell
+  Bell,
+  Users
 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
   const [location, setLocation] = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [theme, setTheme] = useState<"light" | "dark">(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const savedTheme = localStorage.getItem("admin_theme");
       if (savedTheme === "dark" || savedTheme === "light") return savedTheme as "light" | "dark";
     }
@@ -42,122 +42,136 @@ export default function Dashboard({ children }: { children: React.ReactNode }) {
   };
 
   const menuItems = [
-    { label: "Overview", icon: LayoutDashboard, href: "/overview" },
-    { label: "License", icon: KeyRound, href: "/licenses" },
-    { label: "Payment", icon: CreditCard, href: "/payment" },
-    { label: "Payment Settings", icon: Settings, href: "/payment-settings" },
-    { label: "Broadcast", icon: Bell, href: "/broadcast" },
-    { label: "System Settings", icon: Settings, href: "/settings" },
-    { label: "Deploy Guide", icon: BookOpen, href: "/deploy-guide" },
+    { label: "Overview",        icon: LayoutDashboard, href: "/overview" },
+    { label: "Accounts",        icon: Users,            href: "/accounts" },
+    { label: "License",         icon: KeyRound,         href: "/licenses" },
+    { label: "Payment",         icon: CreditCard,       href: "/payment" },
+    { label: "Payment Settings",icon: Settings,         href: "/payment-settings" },
+    { label: "Broadcast",       icon: Bell,             href: "/broadcast" },
+    { label: "System Settings", icon: Settings,         href: "/settings" },
+    { label: "Deploy Guide",    icon: BookOpen,         href: "/deploy-guide" },
   ];
 
-  const sidebarStyle = { 
-    background: "var(--sidebar)", 
-    borderRight: "1px solid var(--sidebar-border)" 
-  };
-  
-  const activeItemStyle = { 
-    background: "rgba(212,160,32,0.12)", 
-    color: "hsl(43,82%,55%)", 
-    boxShadow: "inset 0 0 0 1px rgba(212,160,32,0.25)" 
-  };
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem("admin_theme") || "dark";
-    setTheme(savedTheme as "light" | "dark");
-    document.documentElement.classList.toggle("dark", savedTheme === "dark");
-  }, []);
+  const sidebarStyle = { background: "var(--sidebar)", borderRight: "1px solid var(--sidebar-border)" };
+  const activeItemStyle = { background: "rgba(212,160,32,0.12)", color: "hsl(43,82%,55%)", borderRight: "3px solid hsl(43,82%,55%)" };
+  const itemStyle = { color: "var(--sidebar-foreground)" };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex flex-col md:flex-row">
-      {/* Mobile Header */}
-      <div className="md:hidden flex items-center justify-between px-5 py-4 bg-background border-b border-border">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
-            <Crown className="w-5 h-5 text-primary" />
+    <div className="flex h-screen overflow-hidden bg-background">
+      {/* Sidebar */}
+      <aside
+        className={cn(
+          "hidden md:flex flex-col w-56 shrink-0 transition-all duration-300",
+          mobileMenuOpen && "flex fixed inset-y-0 left-0 z-50 w-56"
+        )}
+        style={sidebarStyle}
+      >
+        {/* Logo */}
+        <div className="px-5 py-5 border-b border-sidebar-border">
+          <div className="flex items-center gap-2">
+            <Crown size={20} style={{ color: "hsl(43,82%,55%)" }} />
+            <span className="font-black text-base" style={{ color: "hsl(43,82%,55%)" }}>OneTailor</span>
           </div>
-          <span className="font-bold text-lg tracking-tight" style={{ fontFamily: "var(--font-serif)" }}>
-            OneTailor <span className="gold-shimmer">Admin</span>
-          </span>
+          <p className="text-[10px] mt-0.5" style={{ color: "var(--sidebar-foreground)", opacity: 0.4 }}>Admin Portal</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon" onClick={toggleTheme} className="rounded-full w-9 h-9">
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </Button>
-          <button onClick={() => setMobileMenuOpen(!mobileMenuOpen)} className="p-2 text-muted-foreground">
-            {mobileMenuOpen ? <X /> : <Menu />}
+
+        {/* Nav */}
+        <nav className="flex-1 py-4 overflow-y-auto">
+          {menuItems.map((item) => {
+            const isActive = location === item.href || location.startsWith(item.href + "/");
+            return (
+              <Link key={item.href} href={item.href}>
+                <div
+                  className="flex items-center gap-3 px-5 py-2.5 text-sm font-semibold cursor-pointer transition-all hover:bg-white/5"
+                  style={isActive ? activeItemStyle : itemStyle}
+                >
+                  <item.icon size={15} />
+                  {item.label}
+                </div>
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Footer */}
+        <div className="px-4 py-4 border-t border-sidebar-border space-y-2">
+          <button onClick={toggleTheme} className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-semibold transition-colors hover:bg-white/5" style={itemStyle}>
+            {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
+            {theme === "dark" ? "Light Mode" : "Dark Mode"}
+          </button>
+          <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors">
+            <LogOut size={15} />
+            Logout
           </button>
         </div>
-      </div>
+      </aside>
 
-      {/* Sidebar */}
-      <aside className={cn(
-        "fixed inset-0 z-50 transform transition-transform md:relative md:translate-x-0 w-64 flex flex-col shrink-0",
-        mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
-      )} style={{ background: "var(--sidebar)", borderRight: "1px solid var(--sidebar-border)" }}>
-        <div className="p-6 flex flex-col h-full">
-          <div className="hidden md:flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center border border-primary/20">
-              <Crown className="w-6 h-6 text-primary" />
+      {/* Mobile overlay */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-40 bg-black/60 md:hidden" onClick={() => setMobileMenuOpen(false)} />
+      )}
+
+      {/* Mobile sidebar */}
+      {mobileMenuOpen && (
+        <aside className="fixed inset-y-0 left-0 z-50 w-56 flex flex-col md:hidden" style={sidebarStyle}>
+          <div className="px-5 py-5 border-b border-sidebar-border flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Crown size={20} style={{ color: "hsl(43,82%,55%)" }} />
+              <span className="font-black text-base" style={{ color: "hsl(43,82%,55%)" }}>OneTailor</span>
             </div>
-            <div className="flex flex-col">
-              <span className="font-bold text-lg leading-tight tracking-tight" style={{ fontFamily: "var(--font-serif)" }}>
-                OneTailor <span className="gold-shimmer">Admin</span>
-              </span>
-              <span className="text-[9px] uppercase tracking-[0.2em] text-primary/60 font-black">Admin Portal</span>
-            </div>
+            <button onClick={() => setMobileMenuOpen(false)}><X size={18} /></button>
           </div>
-
-          <nav className="space-y-1.5">
+          <nav className="flex-1 py-4 overflow-y-auto">
             {menuItems.map((item) => {
-              const active = location === item.href;
+              const isActive = location === item.href;
               return (
-                <Link 
-                  key={item.href} 
-                  href={item.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    "flex items-center gap-3 px-4 py-3 rounded-xl font-bold text-sm transition-all duration-200 active:scale-95",
-                    active ? "shadow-lg" : "text-muted-foreground hover:text-foreground hover:bg-white/5"
-                  )}
-                  style={active ? activeItemStyle : {}}
-                >
-                  <item.icon className={cn("w-4 h-4", active ? "text-primary" : "text-muted-foreground")} />
-                  {item.label}
+                <Link key={item.href} href={item.href}>
+                  <div
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center gap-3 px-5 py-2.5 text-sm font-semibold cursor-pointer transition-all hover:bg-white/5"
+                    style={isActive ? activeItemStyle : itemStyle}
+                  >
+                    <item.icon size={15} />
+                    {item.label}
+                  </div>
                 </Link>
               );
             })}
           </nav>
+          <div className="px-4 py-4 border-t border-sidebar-border">
+            <button onClick={handleLogout} className="flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-colors">
+              <LogOut size={15} />
+              Logout
+            </button>
+          </div>
+        </aside>
+      )}
 
-          <div className="mt-8 pt-8 border-t border-sidebar-border/30 space-y-4">
-            <div className="px-4 py-3.5 rounded-2xl bg-primary/5 border border-primary/10">
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                <span className="text-[10px] font-black uppercase tracking-[0.1em] text-emerald-400/90">System Live</span>
-              </div>
-              <p className="text-[10px] text-muted-foreground/80 font-bold leading-relaxed px-0.5">
-                Managing OneTailor Toolkit v2.0
-              </p>
-            </div>
-            
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start text-red-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl h-11 font-black text-[10px] uppercase tracking-wider"
-              onClick={handleLogout}
-            >
-              <LogOut className="w-3.5 h-3.5 mr-3" />
-              Logout Session
+      {/* Main content */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Top bar */}
+        <header className="flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0">
+          <button className="md:hidden p-1.5 rounded-lg hover:bg-muted" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            <Menu size={20} />
+          </button>
+          <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground">
+            <span className="font-semibold capitalize">{location.replace("/", "") || "Dashboard"}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={toggleTheme} className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground">
+              {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            </button>
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground">
+              <LogOut size={14} className="mr-1.5" /> Logout
             </Button>
           </div>
-        </div>
-      </aside>
+        </header>
 
-      {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-background">
-        <div className="max-w-5xl mx-auto p-6 md:p-10 pb-24 md:pb-10">
+        {/* Page content */}
+        <main className="flex-1 overflow-auto">
           {children}
-        </div>
-      </main>
+        </main>
+      </div>
     </div>
   );
 }

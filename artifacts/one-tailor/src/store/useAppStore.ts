@@ -92,7 +92,7 @@ export interface BusinessProfile {
   name: string;
   phone: string;
   email: string;
-  address: string; // Combined full address
+  address: string;
   addressDetails?: {
     street?: string;
     city?: string;
@@ -122,6 +122,17 @@ export interface MediaWorkspaceFile {
   createdAt: string;
 }
 
+/** Account info returned from /auth/me or /auth/login. Separate from the anonymous deviceId flow. */
+export interface AccountInfo {
+  id: number;
+  email: string | null;
+  businessName: string | null;
+  phone: string | null;
+  isPremium: boolean;
+  deviceId: string;
+  premiumExpiryDate: string | Date | null;
+}
+
 export interface AppState {
   isPremium: boolean;
   licenseKey: string | null;
@@ -141,10 +152,16 @@ export interface AppState {
   isDebugMode: boolean;
   isUsageLimitEnabled: boolean;
 
+  // ─── Account session (null = anonymous/free user) ───────────────────────────
+  account: AccountInfo | null;
+  /** True when a premium request exists and payment hasn't been completed — show resume flow. */
+  pendingPremiumRequest: boolean;
+
+  // Actions
   setMediaWorkspace: (file: MediaWorkspaceFile | null) => void;
   setBusinessProfile: (profile: BusinessProfile) => void;
   setReferralData: (data: Partial<AppState>) => void;
-  applyReferralCode: (code: string) => Promise<{success: boolean, message: string}>;
+  applyReferralCode: (code: string) => Promise<{ success: boolean; message: string }>;
   darkMode: boolean;
   appName: string;
   appLogo: string | null;
@@ -163,7 +180,7 @@ export interface AppState {
   proUpgradeMessage: string;
   proUpgradeLink: string;
   proUpgradeButtonText: string;
-  
+
   setIsPremium: (status: boolean, key?: string) => void;
   setUsage: (count: number, limit: number) => void;
   incrementUsage: () => Promise<boolean>;
@@ -188,15 +205,23 @@ export interface AppState {
   updateMeasurement: (id: string, m: Partial<MeasurementRecord>) => void;
   deleteMeasurement: (id: string) => void;
   setUpgradeLink: (link: string) => void;
-  setSystemSettings: (s: { 
-    measurementLimit?: number; 
-    proUpgradeMessage?: string; 
-    proUpgradeLink?: string; 
+  setSystemSettings: (s: {
+    measurementLimit?: number;
+    proUpgradeMessage?: string;
+    proUpgradeLink?: string;
     proUpgradeButtonText?: string;
     paymentLink?: string;
   }) => void;
-  importData: (data: { customers: Customer[], measurements: MeasurementRecord[] }) => void;
+  importData: (data: { customers: Customer[]; measurements: MeasurementRecord[] }) => void;
   clearData: () => void;
+
+  // ─── Account actions ────────────────────────────────────────────────────────
+  setAccount: (account: AccountInfo | null) => void;
+  setPendingPremiumRequest: (pending: boolean) => void;
+  /** Clear account session — call on logout. */
+  logout: () => void;
+  /** Re-validates premium from server using stored JWT. Safe to call on startup. */
+  revalidatePremium: () => Promise<void>;
 }
 
 export const useAppStore = create<AppState>()(
@@ -230,7 +255,7 @@ export const useAppStore = create<AppState>()(
       whatsappTemplates: [
         "Hello, I want to place an order",
         "I want this design",
-        "How much is this outfit?"
+        "How much is this outfit?",
       ],
       fabricQuotes: [],
       favorites: [],
@@ -239,7 +264,8 @@ export const useAppStore = create<AppState>()(
       measurements: [],
       upgradeLink: "",
       measurementLimit: 25,
-      proUpgradeMessage: "Want to backup your customer measurement and never lose them if you phone or device is broken stolen etc. Unlock Premium to access more features beyond measurement, manage order, delivery, payment, inventory, finance, expense and so much more.",
+      proUpgradeMessage:
+        "Want to backup your customer measurement and never lose them if you phone or device is broken stolen etc. Unlock Premium to access more features beyond measurement, manage order, delivery, payment, inventory, finance, expense and so much more.",
       proUpgradeLink: "",
       proUpgradeButtonText: "⭐ Unlock Premium",
       mediaWorkspace: null,
@@ -252,32 +278,40 @@ export const useAppStore = create<AppState>()(
       isDebugMode: false,
       isUsageLimitEnabled: true,
 
+      // Account session (persisted — so users stay logged in across PWA reloads)
+      account: null,
+      pendingPremiumRequest: false,
+
+      // ─── Media ────────────────────────────────────────────────────────────
       setMediaWorkspace: (file) => set({ mediaWorkspace: file }),
       setReferralData: (data) => set(data),
+
       applyReferralCode: async (code) => {
         const state = get();
         try {
           const res = await fetch("/api/referral/apply", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deviceId: state.deviceId, code })
+            body: JSON.stringify({ deviceId: state.deviceId, code }),
           });
           const data = await res.json();
           if (res.ok) {
-            set({ referredBy: 1 }); // Just to trigger UI change, will be refreshed by profile fetch
+            set({ referredBy: 1 });
             return { success: true, message: data.message };
           }
           return { success: false, message: data.message };
-        } catch (e) {
+        } catch {
           return { success: false, message: "Network error" };
         }
       },
+
       setIsPremium: (status, key) => set({ isPremium: status, licenseKey: key || null }),
       setUsage: (count, limit) => set({ totalUsageCount: count, globalUsageLimit: limit }),
+
       incrementUsage: async () => {
         const state = get();
-        // Check temporary premium
-        const isTempPremium = state.premiumExpiryDate && new Date(state.premiumExpiryDate) > new Date();
+        const isTempPremium =
+          state.premiumExpiryDate && new Date(state.premiumExpiryDate) > new Date();
         if (state.isPremium || isTempPremium) return true;
 
         const effectiveLimit = state.globalUsageLimit + state.bonusUsageLimit;
@@ -287,7 +321,7 @@ export const useAppStore = create<AppState>()(
           const res = await fetch("/api/usage/record", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deviceId: state.deviceId })
+            body: JSON.stringify({ deviceId: state.deviceId }),
           });
           const data = await res.json();
           if (res.ok) {
@@ -295,13 +329,13 @@ export const useAppStore = create<AppState>()(
             return true;
           }
           return false;
-        } catch (e) {
-          // Offline fallback: optimistic increment
+        } catch {
           const newCount = state.totalUsageCount + 1;
           set({ totalUsageCount: newCount });
           return newCount <= effectiveLimit;
         }
       },
+
       setCurrency: (symbol, code) => set({ currencySymbol: symbol, currencyCode: code }),
       setDeviceId: (id) => set({ deviceId: id }),
       setDarkMode: (v) => set({ darkMode: v }),
@@ -309,29 +343,17 @@ export const useAppStore = create<AppState>()(
       setAppLogo: (logo) => set({ appLogo: logo }),
       setSplashImage: (img) => set({ splashImage: img }),
       setWatermarkSettings: (s) =>
-        set((state) => ({
-          watermarkSettings: { ...state.watermarkSettings, ...s },
-        })),
+        set((state) => ({ watermarkSettings: { ...state.watermarkSettings, ...s } })),
       addMeasurementHistory: (h) =>
-        set((state) => ({
-          measurementHistory: [h, ...state.measurementHistory].slice(0, 100),
-        })),
+        set((state) => ({ measurementHistory: [h, ...state.measurementHistory].slice(0, 100) })),
       addCalculationHistory: (h) =>
-        set((state) => ({
-          calculationHistory: [h, ...state.calculationHistory].slice(0, 100),
-        })),
+        set((state) => ({ calculationHistory: [h, ...state.calculationHistory].slice(0, 100) })),
       addWhatsappTemplate: (t) =>
-        set((state) => ({
-          whatsappTemplates: [...state.whatsappTemplates, t],
-        })),
+        set((state) => ({ whatsappTemplates: [...state.whatsappTemplates, t] })),
       addFabricQuote: (q) =>
-        set((state) => ({
-          fabricQuotes: [q, ...state.fabricQuotes].slice(0, 500),
-        })),
+        set((state) => ({ fabricQuotes: [q, ...state.fabricQuotes].slice(0, 500) })),
       deleteFabricQuote: (id) =>
-        set((state) => ({
-          fabricQuotes: state.fabricQuotes.filter((q) => q.id !== id),
-        })),
+        set((state) => ({ fabricQuotes: state.fabricQuotes.filter((q) => q.id !== id) })),
       toggleFavorite: (toolId) =>
         set((state) => ({
           favorites: state.favorites.includes(toolId)
@@ -342,73 +364,135 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           recentTools: [toolId, ...state.recentTools.filter((id) => id !== toolId)].slice(0, 8),
         })),
-      addCustomer: (c) =>
-        set((state) => ({
-          customers: [c, ...state.customers],
-        })),
+      addCustomer: (c) => set((state) => ({ customers: [c, ...state.customers] })),
       updateCustomer: (id, c) =>
         set((state) => ({
-          customers: state.customers.map((cust) => (cust.id === id ? { ...cust, ...c, updatedAt: new Date().toISOString() } : cust)),
+          customers: state.customers.map((cust) =>
+            cust.id === id ? { ...cust, ...c, updatedAt: new Date().toISOString() } : cust
+          ),
         })),
       deleteCustomer: (id) =>
         set((state) => ({
           customers: state.customers.filter((c) => c.id !== id),
           measurements: state.measurements.filter((m) => m.customerId !== id),
         })),
-      addMeasurement: (m) =>
-        set((state) => ({
-          measurements: [m, ...state.measurements],
-        })),
+      addMeasurement: (m) => set((state) => ({ measurements: [m, ...state.measurements] })),
       updateMeasurement: (id, m) =>
         set((state) => ({
-          measurements: state.measurements.map((rec) => (rec.id === id ? { ...rec, ...m, updatedAt: new Date().toISOString() } : rec)),
+          measurements: state.measurements.map((rec) =>
+            rec.id === id ? { ...rec, ...m, updatedAt: new Date().toISOString() } : rec
+          ),
         })),
       deleteMeasurement: (id) =>
-        set((state) => ({
-          measurements: state.measurements.filter((m) => m.id !== id),
-        })),
+        set((state) => ({ measurements: state.measurements.filter((m) => m.id !== id) })),
       setUpgradeLink: (link) => set({ upgradeLink: link }),
-      setSystemSettings: (s) => set((state) => ({
-        measurementLimit: s.measurementLimit ?? state.measurementLimit,
-        proUpgradeMessage: s.proUpgradeMessage ?? state.proUpgradeMessage,
-        proUpgradeLink: s.proUpgradeLink ?? state.proUpgradeLink,
-        proUpgradeButtonText: s.proUpgradeButtonText ?? state.proUpgradeButtonText,
-        upgradeLink: s.paymentLink ?? state.upgradeLink,
-      })),
+      setSystemSettings: (s) =>
+        set((state) => ({
+          measurementLimit: s.measurementLimit ?? state.measurementLimit,
+          proUpgradeMessage: s.proUpgradeMessage ?? state.proUpgradeMessage,
+          proUpgradeLink: s.proUpgradeLink ?? state.proUpgradeLink,
+          proUpgradeButtonText: s.proUpgradeButtonText ?? state.proUpgradeButtonText,
+          upgradeLink: s.paymentLink ?? state.upgradeLink,
+        })),
       importData: (data) =>
         set((state) => ({
-          customers: [...data.customers, ...state.customers.filter(sc => !data.customers.find(dc => dc.id === sc.id))],
-          measurements: [...data.measurements, ...state.measurements.filter(sm => !data.measurements.find(dm => dm.id === sm.id))],
+          customers: [
+            ...data.customers,
+            ...state.customers.filter((sc) => !data.customers.find((dc) => dc.id === sc.id)),
+          ],
+          measurements: [
+            ...data.measurements,
+            ...state.measurements.filter((sm) => !data.measurements.find((dm) => dm.id === sm.id)),
+          ],
         })),
-      clearData: () => set({
-        measurementHistory: [],
-        calculationHistory: [],
-        fabricQuotes: [],
-        customers: [],
-        measurements: [],
-        watermarkSettings: {
-          text: "MyBrand",
-          fontSize: 32,
-          opacity: 50,
-          position: "bottom-right",
-          color: "#ffffff",
-          fontWeight: "bold",
-          textShadow: true,
-          bgOverlay: false,
-        },
-        whatsappTemplates: [
-          "Hello, I want to place an order",
-          "I want this design",
-          "How much is this outfit?"
-        ]
-      })
+      clearData: () =>
+        set({
+          measurementHistory: [],
+          calculationHistory: [],
+          fabricQuotes: [],
+          customers: [],
+          measurements: [],
+          watermarkSettings: {
+            text: "MyBrand",
+            fontSize: 32,
+            opacity: 50,
+            position: "bottom-right",
+            color: "#ffffff",
+            fontWeight: "bold",
+            textShadow: true,
+            bgOverlay: false,
+          },
+          whatsappTemplates: [
+            "Hello, I want to place an order",
+            "I want this design",
+            "How much is this outfit?",
+          ],
+        }),
+
+      // ─── Account actions ──────────────────────────────────────────────────
+
+      setAccount: (account) =>
+        set({
+          account,
+          // Sync isPremium from account if available
+          isPremium: account?.isPremium ?? get().isPremium,
+        }),
+
+      setPendingPremiumRequest: (pending) => set({ pendingPremiumRequest: pending }),
+
+      logout: () => {
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("user_token");
+        }
+        set({
+          account: null,
+          isPremium: false,
+          licenseKey: null,
+          pendingPremiumRequest: false,
+        });
+      },
+
+      revalidatePremium: async () => {
+        const token =
+          typeof window !== "undefined" ? localStorage.getItem("user_token") : null;
+        if (!token) return;
+
+        try {
+          const res = await fetch("/api/auth/me", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+
+          if (!res.ok) {
+            if (res.status === 403) {
+              // Token expired — clear silently
+              if (typeof window !== "undefined") localStorage.removeItem("user_token");
+              set({ account: null, isPremium: false });
+            }
+            return;
+          }
+
+          const data = await res.json();
+          if (data.user) {
+            set({
+              account: data.user,
+              isPremium: data.user.isPremium,
+            });
+          }
+          if (data.pendingPremiumRequest) {
+            set({ pendingPremiumRequest: data.pendingPremiumRequest.canResume });
+          }
+        } catch {
+          // Offline — keep cached state
+        }
+      },
     }),
-    { 
+    {
       name: "onetailor-storage",
       partialize: (state) => {
+        // Don't persist mediaWorkspace (large blobs) or account (re-validated from server)
         const { mediaWorkspace, ...rest } = state;
         return rest;
-      }
+      },
     }
   )
 );

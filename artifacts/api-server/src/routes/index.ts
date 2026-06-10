@@ -6,9 +6,11 @@ import paymentRouter from "./payment";
 import userRouter from "./user";
 import tailoringRouter from "./tailoring";
 import notificationRouter from "./notification";
+import authRouter from "./auth";
 
 const router: IRouter = Router();
 
+router.use(authRouter);
 router.use(healthRouter);
 router.use(adminRouter);
 router.use(licenseRouter);

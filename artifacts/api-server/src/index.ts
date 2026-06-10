@@ -24,7 +24,6 @@ async function startServer() {
   // Initialize DB before starting server
   try {
     logger.info("Initializing database...");
-    // The db import triggers initialization in lib/db
     await db.execute(sql`SELECT 1`);
     logger.info("Database connection verified.");
   } catch (err) {
@@ -34,6 +33,9 @@ async function startServer() {
   // Ensure database tables exist
   try {
     logger.info("Checking database tables...");
+
+    // ─── Core Tables ──────────────────────────────────────────────────────────
+
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS admins (
         id SERIAL PRIMARY KEY,
@@ -42,6 +44,7 @@ async function startServer() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS payment_settings (
         id INTEGER PRIMARY KEY DEFAULT 1,
@@ -59,34 +62,30 @@ async function startServer() {
         currency_code TEXT NOT NULL DEFAULT 'NGN',
         currency_symbol TEXT NOT NULL DEFAULT '₦',
         measurement_limit INTEGER NOT NULL DEFAULT 25,
-        pro_upgrade_message TEXT NOT NULL DEFAULT 'Want to backup your customer measurement and never lose them if you phone or device is broken stolen etc. Unlock Premium to access more features beyond measurement, manage order, delivery, payment, inventory, finance, expense and so much more.',
+        pro_upgrade_message TEXT NOT NULL DEFAULT 'Unlock Premium to access all features.',
         pro_upgrade_link TEXT,
         pro_upgrade_button_text TEXT NOT NULL DEFAULT 'Unlock Premium',
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
 
-    // Permanent fix: Auto-migrate columns if they don't exist
     const settingsColumns = [
-      { name: "is_paystack_enabled", type: "BOOLEAN NOT NULL DEFAULT TRUE" },
-      { name: "is_manual_enabled", type: "BOOLEAN NOT NULL DEFAULT TRUE" },
-      { name: "paystack_public_key", type: "TEXT" },
-      { name: "paystack_secret_key", type: "TEXT" },
-      { name: "global_usage_limit", type: "INTEGER NOT NULL DEFAULT 25" },
-      { name: "currency_code", type: "TEXT NOT NULL DEFAULT 'NGN'" },
-      { name: "currency_symbol", type: "TEXT NOT NULL DEFAULT '₦'" },
-      { name: "measurement_limit", type: "INTEGER NOT NULL DEFAULT 25" },
-      { name: "pro_upgrade_message", type: "TEXT NOT NULL DEFAULT 'Want to backup your customer measurement and never lose them if you phone or device is broken stolen etc. Unlock Premium to access more features beyond measurement, manage order, delivery, payment, inventory, finance, expense and so much more.'" },
-      { name: "pro_upgrade_link", type: "TEXT" },
-      { name: "pro_upgrade_button_text", type: "TEXT NOT NULL DEFAULT 'Unlock Premium'" },
-      { name: "is_debug_mode", type: "BOOLEAN NOT NULL DEFAULT FALSE" },
-      { name: "is_usage_limit_enabled", type: "BOOLEAN NOT NULL DEFAULT TRUE" }
+      { name: "is_paystack_enabled",   type: "BOOLEAN NOT NULL DEFAULT TRUE" },
+      { name: "is_manual_enabled",     type: "BOOLEAN NOT NULL DEFAULT TRUE" },
+      { name: "paystack_public_key",   type: "TEXT" },
+      { name: "paystack_secret_key",   type: "TEXT" },
+      { name: "global_usage_limit",    type: "INTEGER NOT NULL DEFAULT 25" },
+      { name: "currency_code",         type: "TEXT NOT NULL DEFAULT 'NGN'" },
+      { name: "currency_symbol",       type: "TEXT NOT NULL DEFAULT '₦'" },
+      { name: "measurement_limit",     type: "INTEGER NOT NULL DEFAULT 25" },
+      { name: "pro_upgrade_message",   type: "TEXT" },
+      { name: "pro_upgrade_link",      type: "TEXT" },
+      { name: "pro_upgrade_button_text", type: "TEXT" },
+      { name: "is_debug_mode",         type: "BOOLEAN NOT NULL DEFAULT FALSE" },
+      { name: "is_usage_limit_enabled",type: "BOOLEAN NOT NULL DEFAULT TRUE" },
     ];
-
     for (const col of settingsColumns) {
-      try {
-        await db.execute(sql.raw(`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`));
-      } catch (e) {}
+      try { await db.execute(sql.raw(`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}
     }
 
     await db.execute(sql`
@@ -105,24 +104,20 @@ async function startServer() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
-    
-    // Auto-migrate licenses table columns
     const licenseColumns = [
-      { name: "customer_name", type: "TEXT" },
-      { name: "business_name", type: "TEXT" },
-      { name: "license_type", type: "TEXT NOT NULL DEFAULT 'one_tailor'" },
-      { name: "phone", type: "TEXT" },
-      { name: "email", type: "TEXT" },
-      { name: "user_id", type: "INTEGER" },
+      { name: "customer_name",   type: "TEXT" },
+      { name: "business_name",   type: "TEXT" },
+      { name: "license_type",    type: "TEXT NOT NULL DEFAULT 'one_tailor'" },
+      { name: "phone",           type: "TEXT" },
+      { name: "email",           type: "TEXT" },
+      { name: "user_id",         type: "INTEGER" },
       { name: "activation_date", type: "TIMESTAMP" },
-      { name: "expiry_date", type: "TIMESTAMP" }
+      { name: "expiry_date",     type: "TIMESTAMP" },
     ];
-
     for (const col of licenseColumns) {
-      try {
-        await db.execute(sql.raw(`ALTER TABLE licenses ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`));
-      } catch (e) {}
+      try { await db.execute(sql.raw(`ALTER TABLE licenses ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}
     }
+
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
@@ -137,25 +132,28 @@ async function startServer() {
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
-
-    // Ensure all columns exist in users table
     const userColumns = [
-      { name: "email", type: "TEXT UNIQUE" },
-      { name: "phone", type: "TEXT" },
-      { name: "business_name", type: "TEXT" },
-      { name: "business_address", type: "TEXT" },
-      { name: "is_premium", type: "BOOLEAN NOT NULL DEFAULT FALSE" },
-      { name: "total_usage_count", type: "INTEGER NOT NULL DEFAULT 0" },
-      { name: "referral_code", type: "TEXT UNIQUE" },
-      { name: "referred_by", type: "INTEGER" },
-      { name: "successful_invites", type: "INTEGER DEFAULT 0" },
+      { name: "email",                 type: "TEXT UNIQUE" },
+      { name: "phone",                 type: "TEXT" },
+      { name: "business_name",         type: "TEXT" },
+      { name: "business_address",      type: "TEXT" },
+      { name: "is_premium",            type: "BOOLEAN NOT NULL DEFAULT FALSE" },
+      { name: "total_usage_count",     type: "INTEGER NOT NULL DEFAULT 0" },
+      { name: "referral_code",         type: "TEXT UNIQUE" },
+      { name: "referred_by",           type: "INTEGER" },
+      { name: "successful_invites",    type: "INTEGER DEFAULT 0" },
       { name: "referral_reward_level", type: "INTEGER DEFAULT 0" },
-      { name: "referral_confirmed", type: "BOOLEAN DEFAULT FALSE" },
-      { name: "bonus_usage_limit", type: "INTEGER DEFAULT 0" },
-      { name: "premium_expiry_date", type: "TIMESTAMP" }
+      { name: "referral_confirmed",    type: "BOOLEAN DEFAULT FALSE" },
+      { name: "bonus_usage_limit",     type: "INTEGER DEFAULT 0" },
+      { name: "premium_expiry_date",   type: "TIMESTAMP" },
+      // Account credential columns (nullable for anonymous/free users)
+      { name: "password_hash",         type: "TEXT" },
+      { name: "last_login_at",         type: "TIMESTAMP" },
+      { name: "password_reset_token",  type: "TEXT" },
+      { name: "password_reset_expiry", type: "TIMESTAMP" },
     ];
     for (const col of userColumns) {
-      try { await db.execute(sql.raw(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch (e) {}
+      try { await db.execute(sql.raw(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}
     }
 
     await db.execute(sql`
@@ -169,6 +167,15 @@ async function startServer() {
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+    const profileColumns = [
+      { name: "city",     type: "TEXT" },
+      { name: "state",    type: "TEXT" },
+      { name: "landmark", type: "TEXT" },
+      { name: "country",  type: "TEXT DEFAULT 'Nigeria'" },
+    ];
+    for (const col of profileColumns) {
+      try { await db.execute(sql.raw(`ALTER TABLE business_profiles ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}
+    }
 
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS payments (
@@ -185,25 +192,50 @@ async function startServer() {
         verified_at TIMESTAMP
       )
     `);
-
-    // Auto-migrate payments table columns
     const paymentColumns = [
-      { name: "user_id", type: "INTEGER" },
-      { name: "amount", type: "INTEGER NOT NULL DEFAULT 0" },
-      { name: "currency", type: "TEXT NOT NULL DEFAULT 'NGN'" },
-      { name: "method", type: "TEXT NOT NULL DEFAULT 'manual'" },
-      { name: "status", type: "TEXT NOT NULL DEFAULT 'pending'" },
-      { name: "reference", type: "TEXT UNIQUE" },
+      { name: "user_id",      type: "INTEGER" },
+      { name: "currency",     type: "TEXT NOT NULL DEFAULT 'NGN'" },
+      { name: "reference",    type: "TEXT UNIQUE" },
       { name: "evidence_url", type: "TEXT" },
-      { name: "admin_notes", type: "TEXT" },
-      { name: "verified_at", type: "TIMESTAMP" }
+      { name: "admin_notes",  type: "TEXT" },
+      { name: "verified_at",  type: "TIMESTAMP" },
     ];
-
     for (const col of paymentColumns) {
-      try {
-        await db.execute(sql.raw(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`));
-      } catch (e) {}
+      try { await db.execute(sql.raw(`ALTER TABLE payments ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}
     }
+
+    // ─── Premium Requests Table ───────────────────────────────────────────────
+    // Tracks upgrade intent: pending → payment_submitted → approved/rejected.
+    // A license is ONLY created when status reaches "approved".
+    // Keeps licensesTable clean — only real, paid licenses live there.
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS premium_requests (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        license_type TEXT NOT NULL DEFAULT 'one_tailor',
+        status TEXT NOT NULL DEFAULT 'pending',
+        payment_id INTEGER,
+        license_id INTEGER,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+    const premiumRequestColumns = [
+      { name: "license_type", type: "TEXT NOT NULL DEFAULT 'one_tailor'" },
+      { name: "status",       type: "TEXT NOT NULL DEFAULT 'pending'" },
+      { name: "payment_id",   type: "INTEGER" },
+      { name: "license_id",   type: "INTEGER" },
+      { name: "notes",        type: "TEXT" },
+      { name: "updated_at",   type: "TIMESTAMP NOT NULL DEFAULT NOW()" },
+    ];
+    for (const col of premiumRequestColumns) {
+      try { await db.execute(sql.raw(`ALTER TABLE premium_requests ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}
+    }
+
+    // ─── Supporting Tables ────────────────────────────────────────────────────
+
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS push_subscriptions (
         id SERIAL PRIMARY KEY,
@@ -287,15 +319,17 @@ async function startServer() {
         updated_at TIMESTAMP NOT NULL DEFAULT NOW()
       )
     `);
+
     logger.info("Database tables verified.");
 
-    // Initial Data Setup
+    // ─── Initial Data Setup ───────────────────────────────────────────────────
+
     const adminCheck = await db.select().from(adminsTable).limit(1);
     if (adminCheck.length === 0) {
       logger.info("Creating default admin account...");
       await db.insert(adminsTable).values({
         username: "admin",
-        passwordHash: bcrypt.hashSync("admin123", 10) // Set a safer default
+        passwordHash: bcrypt.hashSync("admin123", 10),
       });
       logger.info("Default Admin created: admin / admin123");
     }
@@ -305,17 +339,16 @@ async function startServer() {
       logger.info("Initializing payment settings...");
       await db.insert(paymentSettingsTable).values({
         id: 1,
-        price: 15000, // 15,000 NGN (stored in Naira, whole units)
+        price: 15000, // 15,000 NGN (stored in Naira, NOT kobo)
         bankName: "Opay",
         accountNumber: "1234567890",
         accountName: "OneTailor Technologies",
         instructions: "Pay into the account above and send proof of payment to support.",
         measurementLimit: 25,
-        proUpgradeMessage: "Want to backup your customer measurement and never lose them if you phone or device is broken stolen etc. ⭐ Unlock Premium unlock more feature beyond measurement, manage order, delivery, payment, inventory, finance, expense and so much more.",
-        proUpgradeButtonText: "⭐ Unlock Premium"
+        proUpgradeMessage: "Unlock Premium to access all professional tools.",
+        proUpgradeButtonText: "⭐ Unlock Premium",
       });
     }
-    
   } catch (err) {
     logger.error({ err }, "Failed to verify/create database tables or initial data");
   }
