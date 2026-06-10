@@ -95,7 +95,7 @@ export default function VideoBackgroundRemover() {
       ]);
 
       const files = await ffmpeg.listDir(".");
-      const frames = files.filter(f => f.name.startsWith("frame_") && f.name.endsWith(".png"));
+      const frames = files.filter((f: any) => f.name.startsWith("frame_") && f.name.endsWith(".png"));
       
       // 2. Process each frame with AI
       for (let i = 0; i < frames.length; i++) {

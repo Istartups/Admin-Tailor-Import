@@ -3,7 +3,7 @@ import { Copy, ExternalLink, Share2, Check, MessageCircle } from "lucide-react";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { PremiumBadge } from "@/components/shared/PremiumBadge";
 import { useToast } from "@/hooks/use-toast";
-import { useAppStore } from "@/hooks/use-app-store";
+import { useAppStore } from "@/store/useAppStore";
 
 const COUNTRY_CODES = [
   { label: "Nigeria", code: "234", flag: "🇳🇬" },
@@ -44,12 +44,7 @@ export default function WhatsAppLink() {
     await navigator.clipboard.writeText(waLink);
     setCopied(true);
     await incrementUsage();
-    addRecentTool({
-      id: "whatsapp-link",
-      name: "WhatsApp Link",
-      path: "/whatsapp-link",
-      icon: "MessageCircle",
-    });
+    addRecentTool("whatsapp-link");
     toast({ title: "Copied!", description: "WhatsApp link copied to clipboard." });
     setTimeout(() => setCopied(false), 2000);
   };

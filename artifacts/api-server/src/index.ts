@@ -145,7 +145,14 @@ async function startServer() {
       { name: "business_name", type: "TEXT" },
       { name: "business_address", type: "TEXT" },
       { name: "is_premium", type: "BOOLEAN NOT NULL DEFAULT FALSE" },
-      { name: "total_usage_count", type: "INTEGER NOT NULL DEFAULT 0" }
+      { name: "total_usage_count", type: "INTEGER NOT NULL DEFAULT 0" },
+      { name: "referral_code", type: "TEXT UNIQUE" },
+      { name: "referred_by", type: "INTEGER" },
+      { name: "successful_invites", type: "INTEGER DEFAULT 0" },
+      { name: "referral_reward_level", type: "INTEGER DEFAULT 0" },
+      { name: "referral_confirmed", type: "BOOLEAN DEFAULT FALSE" },
+      { name: "bonus_usage_limit", type: "INTEGER DEFAULT 0" },
+      { name: "premium_expiry_date", type: "TIMESTAMP" }
     ];
     for (const col of userColumns) {
       try { await db.execute(sql.raw(`ALTER TABLE users ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch (e) {}

@@ -1,0 +1,6 @@
+- [Price units in OneTailor](price-units.md) — amounts stored in Naira (whole units), NOT kobo. Admin display must NOT divide by 100. Paystack init multiplies by 100 to convert to kobo.
+- [Paystack callback URL](paystack-callback.md) — callback_url must include /api prefix: `${host}/api/payment/paystack/verify`, not `/payment/paystack/verify`.
+- [License activations stats](license-activations.md) — must insert licenseActivationsTable record whenever a license is created (manual approve, Paystack webhook, Paystack verify) for stats activations count to be non-zero.
+- [Express return void pattern](express-return-void.md) — use `return void res.json(...)` not `return res.json(...)` in Express 5 async route handlers to avoid TS7030 "not all code paths return a value" errors.
+- [Drizzle dynamic query typing](drizzle-dynamic-query.md) — use `let query: any =` for variables that will have `.where()` appended conditionally; Drizzle's inferred types omit `.where` after certain chaining patterns.
+- [Shimmed packages type declarations](shimmed-packages.md) — @ffmpeg/ffmpeg, @ffmpeg/util, @xenova/transformers are shimmed; declare modules in `artifacts/one-tailor/src/global.d.ts`.

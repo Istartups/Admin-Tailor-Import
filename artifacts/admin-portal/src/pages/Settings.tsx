@@ -50,6 +50,8 @@ interface PaymentInfo {
   proUpgradeMessage: string;
   proUpgradeLink: string;
   proUpgradeButtonText: string;
+  isUsageLimitEnabled: boolean;
+  isDebugMode: boolean;
 }
 
 export default function Settings() {
@@ -86,6 +88,8 @@ export default function Settings() {
     proUpgradeMessage: "",
     proUpgradeLink: "",
     proUpgradeButtonText: "",
+    isUsageLimitEnabled: true,
+    isDebugMode: false,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -109,6 +113,8 @@ export default function Settings() {
           measurementLimit: data.measurementLimit || 25,
           proUpgradeMessage: data.proUpgradeMessage || "",
           proUpgradeLink: data.proUpgradeLink || "",
+          isUsageLimitEnabled: data.isUsageLimitEnabled ?? true,
+          isDebugMode: data.isDebugMode ?? false,
           proUpgradeButtonText: data.proUpgradeButtonText || "",
         });
       }

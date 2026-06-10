@@ -150,7 +150,7 @@ export default function PaymentSettings() {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-primary/60 px-1">License Price (in minor units - kobo/cents)</label>
+              <label className="text-xs font-bold uppercase text-primary/60 px-1">License Price (in Naira, e.g. 15000 = ₦15,000)</label>
               <Input 
                 type="number"
                 value={settings.price} 

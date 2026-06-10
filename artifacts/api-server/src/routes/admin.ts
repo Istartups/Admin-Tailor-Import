@@ -48,9 +48,9 @@ router.get("/admin/stats", authenticateAdmin as any, async (req, res) => {
     const [settings] = await db.select().from(paymentSettingsTable).where(eq(paymentSettingsTable.id, 1)).limit(1);
     
     // 2. Filtered Stats (New Users, Activations, Revenue)
-    let userQuery = db.select({ count: sql<number>`count(*)` }).from(usersTable);
-    let activationQuery = db.select({ count: sql<number>`count(*)` }).from(licenseActivationsTable);
-    let revenueQuery = db.select({ total: sql<number>`sum(amount)`, count: sql<number>`count(*)` }).from(paymentsTable).where(eq(paymentsTable.status, "success"));
+    let userQuery: any = db.select({ count: sql<number>`count(*)` }).from(usersTable);
+    let activationQuery: any = db.select({ count: sql<number>`count(*)` }).from(licenseActivationsTable);
+    let revenueQuery: any = db.select({ total: sql<number>`sum(amount)`, count: sql<number>`count(*)` }).from(paymentsTable).where(eq(paymentsTable.status, "success"));
 
     if (startDate) {
       userQuery = userQuery.where(gte(usersTable.createdAt, startDate)) as any;
@@ -124,8 +124,8 @@ router.get("/admin/stats", authenticateAdmin as any, async (req, res) => {
       disabledUsers: Number(disabledUsers?.count || 0),
       disabledLicenses: Number(disabledLicenses?.count || 0),
       activationRate: `${actRate}%`,
-      trendData: dailyStats,
-      recentActivity: recentActivity.map((a: any) => ({
+      trendData: (dailyStats.rows as any[]),
+      recentActivity: (recentActivity.rows as any[]).map((a: any) => ({
         text: a.text,
         type: a.type,
         date: a.date

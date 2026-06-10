@@ -253,7 +253,6 @@ export const useAppStore = create<AppState>()(
       isUsageLimitEnabled: true,
 
       setMediaWorkspace: (file) => set({ mediaWorkspace: file }),
-      setBusinessProfile: (profile) => set({ businessProfile: profile }),
       setReferralData: (data) => set(data),
       applyReferralCode: async (code) => {
         const state = get();

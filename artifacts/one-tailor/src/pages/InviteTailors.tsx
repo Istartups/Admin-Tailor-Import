@@ -28,20 +28,6 @@ export default function InviteTailors() {
   const handleRedeem = async () => {
     if (!redeemCode.trim()) return;
     setRedeeming(true);
-    const result = await applyReferralCode(redeemCode.trim());
-    if (result.success) {
-      toast({ title: "Success!", description: "Referral code applied. Complete 1 tool action to unlock rewards for your friend!" });
-      setRedeemCode("");
-    } else {
-      toast({ title: "Error", description: result.message, variant: "destructive" });
-    }
-    setRedeeming(true); // Wait, this should be false
-  };
-
-  // Corrected handleRedeem
-  const handleRedeemFixed = async () => {
-    if (!redeemCode.trim()) return;
-    setRedeeming(true);
     try {
       const result = await applyReferralCode(redeemCode.trim().toUpperCase());
       if (result.success) {
@@ -181,6 +167,7 @@ ${referralCode}`;
               reward="+5 Bonus Credits" 
               active={successfulInvites >= 1} 
               icon={<Zap className="w-5 h-5" />}
+              current={successfulInvites}
             />
             <RewardItem 
               invites={3} 
@@ -188,6 +175,7 @@ ${referralCode}`;
               reward="7 Days Premium Access" 
               active={successfulInvites >= 3} 
               icon={<Crown className="w-5 h-5" />}
+              current={successfulInvites}
             />
             <RewardItem 
               invites={10} 
@@ -195,6 +183,7 @@ ${referralCode}`;
               reward="30 Days Premium Access" 
               active={successfulInvites >= 10} 
               icon={<Gift className="w-5 h-5" />}
+              current={successfulInvites}
             />
           </div>
         </div>
@@ -216,7 +205,7 @@ ${referralCode}`;
   );
 }
 
-function RewardItem({ invites, title, reward, active, icon }: { invites: number, title: string, reward: string, active: boolean, icon: React.ReactNode }) {
+function RewardItem({ invites, title, reward, active, icon, current }: { invites: number, title: string, reward: string, active: boolean, icon: React.ReactNode, current: number }) {
   return (
     <div className={`flex items-center gap-4 p-5 rounded-[1.5rem] border transition-all ${active ? "bg-primary/10 border-primary/30" : "bg-card border-border opacity-60"}`}>
       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
@@ -231,7 +220,7 @@ function RewardItem({ invites, title, reward, active, icon }: { invites: number,
       </div>
       <div className="text-right">
         <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{active ? "Unlocked" : "Progress"}</p>
-        <p className="text-sm font-black">{active ? invites : Math.min(invites, 0)}/{invites}</p>
+        <p className="text-sm font-black">{Math.min(current, invites)}/{invites}</p>
       </div>
     </div>
   );

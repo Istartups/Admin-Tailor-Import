@@ -12,7 +12,7 @@ router.get("/tailoring/customers", async (req, res) => {
 
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId as string)).limit(1);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return void res.status(404).json({ message: "User not found" });
 
     let query = db.select().from(tailoringCustomersTable).where(eq(tailoringCustomersTable.userId, user.id));
 
@@ -43,7 +43,7 @@ router.post("/tailoring/customers", async (req, res) => {
 
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId)).limit(1);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return void res.status(404).json({ message: "User not found" });
 
     if (id) {
       // Update
@@ -71,7 +71,7 @@ router.delete("/tailoring/customers/:id", async (req, res) => {
 
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId as string)).limit(1);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return void res.status(404).json({ message: "User not found" });
 
     // Delete measurements first
     await db.delete(tailoringMeasurementsTable).where(eq(tailoringMeasurementsTable.customerId, parseInt(id)));

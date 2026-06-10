@@ -119,7 +119,7 @@ export default function Home() {
     "social-video-resizer",
     "bg-remover"
   ];
-  const recommendedTools = RECOMMENDED_TOOL_IDS.map(id => getToolById(id)).filter(Boolean);
+  const recommendedTools = RECOMMENDED_TOOL_IDS.map(id => getToolById(id)).filter((t): t is NonNullable<ReturnType<typeof getToolById>> => !!t);
 
   return (
     <div className="max-w-2xl mx-auto px-4 pb-8">

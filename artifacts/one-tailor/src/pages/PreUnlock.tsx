@@ -31,6 +31,7 @@ interface PaymentSettings {
   paystackPublicKey?: string;
   currencyCode?: string;
   currencySymbol?: string;
+  isDebugMode?: boolean;
 }
 
 type Step = "features" | "profile" | "payment_method" | "paystack" | "manual" | "success" | "pending";

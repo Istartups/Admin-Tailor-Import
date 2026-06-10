@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { db, paymentSettingsTable, paymentsTable, usersTable, licensesTable } from "@workspace/db";
+import { db, paymentSettingsTable, paymentsTable, usersTable, licensesTable, licenseActivationsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { authenticateAdmin } from "../middlewares/auth";
 import axios from "axios";
@@ -23,12 +23,12 @@ router.post("/payment/paystack/webhook", async (req, res) => {
     
     if (!secret) {
       console.error("Webhook Error: Paystack secret not configured in database");
-      return res.status(500).json({ message: "Paystack secret not configured" });
+      return void res.status(500).json({ message: "Paystack secret not configured" });
     }
 
     const hash = crypto.createHmac('sha512', secret).update(JSON.stringify(req.body)).digest('hex');
     if (hash !== req.headers['x-paystack-signature']) {
-      return res.status(401).send("Unauthorized");
+      return void res.status(401).send("Unauthorized");
     }
 
     if (event.event === "charge.success") {
@@ -38,7 +38,7 @@ router.post("/payment/paystack/webhook", async (req, res) => {
       // 1. Duplicate Protection: Check if already processed
       const [existing] = await db.select().from(paymentsTable).where(eq(paymentsTable.reference, reference)).limit(1);
       if (existing && existing.status === "success") {
-        return res.status(200).send("Already processed");
+        return void res.status(200).send("Already processed");
       }
 
       // 2. Update/Insert payment record
@@ -59,7 +59,7 @@ router.post("/payment/paystack/webhook", async (req, res) => {
       await db.update(usersTable).set({ isPremium: true }).where(eq(usersTable.id, userId));
       
       const licenseKey = generateLicenseKey();
-      await db.insert(licensesTable).values({
+      const [newWebhookLicense] = await db.insert(licensesTable).values({
         userId,
         key: licenseKey,
         status: "active",
@@ -67,7 +67,16 @@ router.post("/payment/paystack/webhook", async (req, res) => {
         customerName: customer.first_name || "Customer",
         email: customer.email,
         licenseType: "one_tailor"
-      });
+      }).returning();
+
+      if (newWebhookLicense) {
+        try {
+          await db.insert(licenseActivationsTable).values({
+            licenseId: newWebhookLicense.id,
+            deviceId: deviceId || "paystack-webhook"
+          });
+        } catch (e) {}
+      }
 
       // 4. Notify User
       const template = templates.licenseActivated(customer.first_name || "Customer", licenseKey);
@@ -172,8 +181,8 @@ router.get("/payment-info", async (req, res) => {
           id: user.id,
           isPremium: user.isPremium,
           totalUsageCount: user.totalUsageCount,
-          bonusUsageLimit: user.bonusUsageLimit,
-          remainingUsage: Math.max(0, (currentSettings?.globalUsageLimit || 25) + user.bonusUsageLimit - user.totalUsageCount),
+          bonusUsageLimit: user.bonusUsageLimit ?? 0,
+          remainingUsage: Math.max(0, (currentSettings?.globalUsageLimit || 25) + (user.bonusUsageLimit ?? 0) - user.totalUsageCount),
           referralCode: user.referralCode,
           successfulInvites: user.successfulInvites,
           referredBy: user.referredBy,
@@ -200,30 +209,30 @@ router.get("/payment-info", async (req, res) => {
 // Record Tool Usage
 router.post("/usage/record", async (req, res) => {
   const { deviceId, toolId } = req.body;
-  if (!deviceId) return res.status(400).json({ message: "deviceId is required" });
+  if (!deviceId) return void res.status(400).json({ message: "deviceId is required" });
 
   try {
     const [settings] = await db.select().from(paymentSettingsTable).where(eq(paymentSettingsTable.id, 1)).limit(1);
     const [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId)).limit(1);
 
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return void res.status(404).json({ message: "User not found" });
 
     // 1. Check if usage limit is globally enabled
     if (settings && !settings.isUsageLimitEnabled) {
-       return res.json({ success: true, unlimited: true, totalUsageCount: user.totalUsageCount });
+       return void res.json({ success: true, unlimited: true, totalUsageCount: user.totalUsageCount });
     }
 
     // 2. Always allow premium (check if still valid)
     const isPremium = user.isPremium || (user.premiumExpiryDate && user.premiumExpiryDate > new Date());
     
     if (isPremium) {
-      return res.json({ success: true, isPremium: true, totalUsageCount: user.totalUsageCount });
+      return void res.json({ success: true, isPremium: true, totalUsageCount: user.totalUsageCount });
     }
 
     // 3. Check limit
-    const limit = (settings?.globalUsageLimit || 25) + user.bonusUsageLimit;
+    const limit = (settings?.globalUsageLimit || 25) + (user.bonusUsageLimit ?? 0);
     if (user.totalUsageCount >= limit) {
-      return res.status(403).json({ 
+      return void res.status(403).json({ 
         message: "Your free uses are finished", 
         totalUsageCount: user.totalUsageCount,
         limit: limit
@@ -243,9 +252,9 @@ router.post("/usage/record", async (req, res) => {
       // Reward the inviter
       const [inviter] = await db.select().from(usersTable).where(eq(usersTable.id, user.referredBy)).limit(1);
       if (inviter) {
-        const newInviteCount = inviter.successfulInvites + 1;
-        let bonusUsage = inviter.bonusUsageLimit;
-        let rewardLevel = inviter.referralRewardLevel;
+        const newInviteCount = (inviter.successfulInvites ?? 0) + 1;
+        let bonusUsage = inviter.bonusUsageLimit ?? 0;
+        let rewardLevel = inviter.referralRewardLevel ?? 0;
         let premiumExpiry = inviter.premiumExpiryDate || new Date();
         if (premiumExpiry < new Date()) premiumExpiry = new Date();
 
@@ -295,17 +304,17 @@ router.post("/usage/record", async (req, res) => {
 // Apply Referral Code
 router.post("/referral/apply", async (req, res) => {
   const { deviceId, code } = req.body;
-  if (!deviceId || !code) return res.status(400).json({ message: "deviceId and code are required" });
+  if (!deviceId || !code) return void res.status(400).json({ message: "deviceId and code are required" });
 
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId)).limit(1);
-    if (!user) return res.status(404).json({ message: "User not found" });
+    if (!user) return void res.status(404).json({ message: "User not found" });
 
-    if (user.referredBy) return res.status(400).json({ message: "Referral code already applied" });
-    if (user.referralCode === code) return res.status(400).json({ message: "Cannot refer yourself" });
+    if (user.referredBy) return void res.status(400).json({ message: "Referral code already applied" });
+    if (user.referralCode === code) return void res.status(400).json({ message: "Cannot refer yourself" });
 
     const [inviter] = await db.select().from(usersTable).where(eq(usersTable.referralCode, code)).limit(1);
-    if (!inviter) return res.status(404).json({ message: "Invalid referral code" });
+    if (!inviter) return void res.status(404).json({ message: "Invalid referral code" });
 
     await db.update(usersTable).set({ referredBy: inviter.id }).where(eq(usersTable.id, user.id));
     
@@ -339,7 +348,7 @@ router.post("/payment/paystack/initialize", async (req, res) => {
         email,
         amount: amount * 100, // Convert Naira to Kobo for Paystack
         currency: settings.currencyCode || "NGN",
-        callback_url: `${req.protocol}://${req.get("host")}/payment/paystack/verify`,
+        callback_url: `${req.protocol}://${req.get("host")}/api/payment/paystack/verify`,
         metadata: { deviceId, userId: user.id }
       },
       {
@@ -384,7 +393,7 @@ router.get("/payment/paystack/verify", async (req, res) => {
       // 1. Check if already processed
       const [existing] = await db.select().from(paymentsTable).where(eq(paymentsTable.reference, ref)).limit(1);
       if (existing && existing.status === "success") {
-        return res.redirect(`${process.env["FRONTEND_URL"] || "http://localhost:5173"}/pre-unlock/success?ref=${ref}`);
+        return void res.redirect(`${process.env["FRONTEND_URL"] || "http://localhost:5173"}/pre-unlock/success?ref=${ref}`);
       }
 
       // 2. Update payment record
@@ -418,7 +427,7 @@ router.get("/payment/paystack/verify", async (req, res) => {
         const customerName = response.data.data.customer.first_name || "Customer";
         const customerEmail = response.data.data.customer.email;
 
-        await db.insert(licensesTable).values({
+        const [newVerifyLicense] = await db.insert(licensesTable).values({
           userId,
           key: licenseKey,
           status: "active",
@@ -426,7 +435,16 @@ router.get("/payment/paystack/verify", async (req, res) => {
           customerName,
           email: customerEmail,
           licenseType: "one_tailor"
-        });
+        }).returning();
+
+        if (newVerifyLicense) {
+          try {
+            await db.insert(licenseActivationsTable).values({
+              licenseId: newVerifyLicense.id,
+              deviceId: deviceId || "paystack-verify"
+            });
+          } catch (e) {}
+        }
 
         // 6. Send Notification
         const emailTemplate = templates.licenseActivated(customerName, licenseKey);
@@ -451,14 +469,14 @@ router.post("/payment/manual", upload.single("evidence"), async (req, res) => {
 
   if (!deviceId || !amount || !file) {
     console.error("[PAYMENT] Missing required fields for manual payment");
-    return res.status(400).json({ message: "Missing required fields (deviceId, amount, or evidence file)" });
+    return void res.status(400).json({ message: "Missing required fields (deviceId, amount, or evidence file)" });
   }
 
   try {
     const [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId)).limit(1);
     if (!user) {
       console.error(`[PAYMENT] User not found for deviceId: ${deviceId}`);
-      return res.status(404).json({ message: "User not found" });
+      return void res.status(404).json({ message: "User not found" });
     }
 
     console.log(`[PAYMENT] Recording manual payment for user ${user.id} (${user.businessName})`);
@@ -563,7 +581,7 @@ router.post("/admin/payments/:id/approve", authenticateAdmin as any, async (req,
     // 3. Generate License
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, payment.userId)).limit(1);
     const licenseKey = generateLicenseKey();
-    await db.insert(licensesTable).values({
+    const [newApprovedLicense] = await db.insert(licensesTable).values({
       userId: user.id,
       key: licenseKey,
       status: "active",
@@ -572,7 +590,16 @@ router.post("/admin/payments/:id/approve", authenticateAdmin as any, async (req,
       email: user.email,
       phone: user.phone,
       businessName: user.businessName
-    });
+    }).returning();
+
+    if (newApprovedLicense) {
+      try {
+        await db.insert(licenseActivationsTable).values({
+          licenseId: newApprovedLicense.id,
+          deviceId: user.deviceId || "manual-approval"
+        });
+      } catch (e) {}
+    }
 
     // 4. Notify User
     if (user.email) {

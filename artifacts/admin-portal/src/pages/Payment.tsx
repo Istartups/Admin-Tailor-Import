@@ -122,7 +122,7 @@ export default function Payment() {
     return new Intl.NumberFormat('en-NG', { 
       style: 'currency', 
       currency: currencySettings.code 
-    }).format(p / 100).replace(currencySettings.code, currencySettings.symbol);
+    }).format(p).replace(currencySettings.code, currencySettings.symbol);
   };
 
   return (
