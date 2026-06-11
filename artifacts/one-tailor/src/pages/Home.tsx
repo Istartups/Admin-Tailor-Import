@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { ALL_TOOLS, CATEGORY_LABELS, type ToolCategory, getToolById } from "@/lib/tools";
+import { PremiumStatusBanner } from "@/components/PremiumStatusBanner";
 
 const POPULAR_TOOL_IDS = ["watermark", "delivery-date", "fabric-requirement", "queue-manager", "profit", "whatsapp-link"];
 const CATEGORIES: { id: ToolCategory; emoji: string }[] = [
@@ -200,6 +201,9 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {/* Payment Status Banner — visible when user has a pending/rejected request */}
+      <PremiumStatusBanner />
 
       {/* Search bar */}
       <form onSubmit={handleSearch} className="mb-6">

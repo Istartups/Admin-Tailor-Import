@@ -80,6 +80,7 @@ export default function Settings() {
   const account = useAppStore((s) => s.account);
   const logout = useAppStore((s) => s.logout);
   const pendingPremiumRequest = useAppStore((s) => s.pendingPremiumRequest);
+  const premiumRequestStatus = useAppStore((s) => s.premiumRequestStatus);
   const appLogo = useAppStore((s) => s.appLogo);
   const splashImage = useAppStore((s) => s.splashImage);
   const businessProfile = useAppStore((s) => s.businessProfile);
@@ -701,11 +702,20 @@ export default function Settings() {
                     {account.isPremium ? "⭐ Premium Active — All tools unlocked" : "Free Account — Upgrade to Premium"}
                   </div>
 
-                  {!account.isPremium && pendingPremiumRequest && (
-                    <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-xl text-xs text-blue-400 font-medium">
-                      You have a pending premium request. Resume your payment below.
-                    </div>
-                  )}
+                  {!account.isPremium && pendingPremiumRequest && (() => {
+                    const cfg =
+                      premiumRequestStatus === "payment_submitted"
+                        ? { bg: "bg-blue-500/10", border: "border-blue-500/20", text: "text-blue-400", label: "Awaiting Approval", msg: "Your payment proof is under review. We'll activate your premium once verified." }
+                        : premiumRequestStatus === "rejected"
+                        ? { bg: "bg-red-500/10", border: "border-red-500/20", text: "text-red-400", label: "Payment Rejected", msg: "Your proof could not be verified. Please retry below." }
+                        : { bg: "bg-amber-500/10", border: "border-amber-500/20", text: "text-amber-400", label: "Payment Pending", msg: "You started an upgrade but haven't completed payment. Resume below." };
+                    return (
+                      <div className={`p-3 ${cfg.bg} border ${cfg.border} rounded-xl text-xs ${cfg.text} font-medium space-y-0.5`}>
+                        <p className="font-black uppercase tracking-wider text-[10px]">{cfg.label}</p>
+                        <p className="font-normal opacity-90">{cfg.msg}</p>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {!account.isPremium && (

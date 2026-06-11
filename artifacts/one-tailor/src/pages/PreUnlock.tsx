@@ -44,6 +44,7 @@ export default function PreUnlock() {
   const businessProfile   = useAppStore((s) => s.businessProfile);
   const setBusinessProfile = useAppStore((s) => s.setBusinessProfile);
   const setPendingPremiumRequest = useAppStore((s) => s.setPendingPremiumRequest);
+  const premiumRequestStatus = useAppStore((s) => s.premiumRequestStatus);
 
   const { toast } = useToast();
   const [, navigate] = useLocation();
@@ -52,8 +53,14 @@ export default function PreUnlock() {
 
   const getInitialStep = (): Step => {
     if (subRoute === "success") return "success";
-    if (account) return "features"; // already logged in → show upgrade details first
-    return "create_account";        // anonymous → lead form first
+    if (account) {
+      // Auto-resume from the correct step based on existing request status
+      if (premiumRequestStatus === "payment_submitted") return "pending";
+      if (premiumRequestStatus === "rejected") return "payment_method";
+      if (premiumRequestStatus === "pending") return "payment_method";
+      return "features";
+    }
+    return "create_account"; // anonymous → lead form first
   };
 
   const [step, setStep] = useState<Step>(getInitialStep);
@@ -552,6 +559,16 @@ export default function PreUnlock() {
                 </div>
               )}
             </div>
+
+            {premiumRequestStatus === "rejected" && (
+              <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/25 rounded-2xl">
+                <X size={16} className="text-red-400 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-xs font-black text-red-400 uppercase tracking-wider mb-0.5">Previous Payment Rejected</p>
+                  <p className="text-xs text-foreground/70 leading-relaxed">Your previous payment proof could not be verified. Please try again with a clear receipt, or pay directly with Paystack.</p>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-3">
               {settings?.isPaystackEnabled && (

@@ -156,6 +156,8 @@ export interface AppState {
   account: AccountInfo | null;
   /** True when a premium request exists and payment hasn't been completed — show resume flow. */
   pendingPremiumRequest: boolean;
+  /** Granular status of the most recent premium request — null when none exists. */
+  premiumRequestStatus: "pending" | "payment_submitted" | "approved" | "rejected" | null;
 
   // Actions
   setMediaWorkspace: (file: MediaWorkspaceFile | null) => void;
@@ -218,6 +220,7 @@ export interface AppState {
   // ─── Account actions ────────────────────────────────────────────────────────
   setAccount: (account: AccountInfo | null) => void;
   setPendingPremiumRequest: (pending: boolean) => void;
+  setPremiumRequestStatus: (status: "pending" | "payment_submitted" | "approved" | "rejected" | null) => void;
   /** Clear account session — call on logout. */
   logout: () => void;
   /** Re-validates premium from server using stored JWT. Safe to call on startup. */
@@ -281,6 +284,7 @@ export const useAppStore = create<AppState>()(
       // Account session (persisted — so users stay logged in across PWA reloads)
       account: null,
       pendingPremiumRequest: false,
+      premiumRequestStatus: null,
 
       // ─── Media ────────────────────────────────────────────────────────────
       setMediaWorkspace: (file) => set({ mediaWorkspace: file }),
@@ -440,6 +444,8 @@ export const useAppStore = create<AppState>()(
 
       setPendingPremiumRequest: (pending) => set({ pendingPremiumRequest: pending }),
 
+      setPremiumRequestStatus: (status) => set({ premiumRequestStatus: status }),
+
       logout: () => {
         if (typeof window !== "undefined") {
           localStorage.removeItem("user_token");
@@ -449,6 +455,7 @@ export const useAppStore = create<AppState>()(
           isPremium: false,
           licenseKey: null,
           pendingPremiumRequest: false,
+          premiumRequestStatus: null,
         });
       },
 
@@ -466,7 +473,7 @@ export const useAppStore = create<AppState>()(
             if (res.status === 403) {
               // Token expired — clear silently
               if (typeof window !== "undefined") localStorage.removeItem("user_token");
-              set({ account: null, isPremium: false });
+              set({ account: null, isPremium: false, pendingPremiumRequest: false, premiumRequestStatus: null });
             }
             return;
           }
@@ -479,7 +486,13 @@ export const useAppStore = create<AppState>()(
             });
           }
           if (data.pendingPremiumRequest) {
-            set({ pendingPremiumRequest: data.pendingPremiumRequest.canResume });
+            set({
+              pendingPremiumRequest: data.pendingPremiumRequest.canResume,
+              premiumRequestStatus: data.pendingPremiumRequest.status ?? null,
+            });
+          } else {
+            // No pending request — clear any stale status
+            set({ pendingPremiumRequest: false, premiumRequestStatus: null });
           }
         } catch {
           // Offline — keep cached state

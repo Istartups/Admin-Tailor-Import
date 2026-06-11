@@ -10,6 +10,7 @@ export default function AccountLogin() {
   const setAccount = useAppStore((s) => s.setAccount);
   const setIsPremium = useAppStore((s) => s.setIsPremium);
   const setPendingPremiumRequest = useAppStore((s) => s.setPendingPremiumRequest);
+  const setPremiumRequestStatus = useAppStore((s) => s.setPremiumRequestStatus);
   const { toast } = useToast();
 
   const [email, setEmail] = useState("");
@@ -51,8 +52,16 @@ export default function AccountLogin() {
         toast({ title: "Welcome back! ⭐", description: "Premium access restored." });
       } else if (data.pendingPremiumRequest?.canResume) {
         setPendingPremiumRequest(true);
-        toast({ title: "Welcome back!", description: "You have a pending premium request. Resume payment anytime." });
+        setPremiumRequestStatus(data.pendingPremiumRequest.status ?? null);
+        const statusMsg =
+          data.pendingPremiumRequest.status === "payment_submitted"
+            ? "Your payment is awaiting admin approval."
+            : data.pendingPremiumRequest.status === "rejected"
+            ? "Your payment was rejected. Please retry."
+            : "You have a pending premium request. Resume payment anytime.";
+        toast({ title: "Welcome back!", description: statusMsg });
       } else {
+        setPremiumRequestStatus(null);
         toast({ title: "Logged in! 👋", description: "Welcome back to OneTailor." });
       }
 
