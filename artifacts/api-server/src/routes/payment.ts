@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db, paymentSettingsTable, paymentsTable, usersTable, licensesTable, licenseActivationsTable, premiumRequestsTable, businessProfilesTable } from "@workspace/db";
-import { eq, desc, and, isNotNull } from "drizzle-orm";
+import { eq, desc, and, or, isNotNull } from "drizzle-orm";
 import { authenticateAdmin } from "../middlewares/auth";
 import axios from "axios";
 import multer from "multer";
@@ -65,7 +65,9 @@ async function activateLicenseForUser(userId: number, meta: {
 async function approvePremiumRequest(userId: number, licenseId: number, paymentId?: number) {
   try {
     const [req] = await db.select().from(premiumRequestsTable)
-      .where(eq(premiumRequestsTable.userId, userId)).limit(1);
+      .where(eq(premiumRequestsTable.userId, userId))
+      .orderBy(desc(premiumRequestsTable.id))
+      .limit(1);
     if (req) {
       await db.update(premiumRequestsTable).set({
         status: "approved",
@@ -81,7 +83,11 @@ async function approvePremiumRequest(userId: number, licenseId: number, paymentI
 async function markPaymentSubmitted(userId: number, paymentId: number) {
   try {
     const [req] = await db.select().from(premiumRequestsTable)
-      .where(and(eq(premiumRequestsTable.userId, userId), eq(premiumRequestsTable.status, "pending")))
+      .where(and(
+        eq(premiumRequestsTable.userId, userId),
+        or(eq(premiumRequestsTable.status, "pending"), eq(premiumRequestsTable.status, "rejected")),
+      ))
+      .orderBy(desc(premiumRequestsTable.id))
       .limit(1);
     if (req) {
       await db.update(premiumRequestsTable).set({
@@ -93,11 +99,11 @@ async function markPaymentSubmitted(userId: number, paymentId: number) {
   } catch { /* non-critical */ }
 }
 
-/** Reset premium request to "pending" so user can retry payment. */
+/** Mark premium request as rejected so the user sees the correct state and can retry. */
 async function resetPremiumRequest(userId: number) {
   try {
     await db.update(premiumRequestsTable).set({
-      status: "pending",
+      status: "rejected",
       paymentId: null,
       updatedAt: new Date(),
     }).where(and(
@@ -557,7 +563,7 @@ router.post("/admin/payments/:id/approve", authenticateAdmin as any, async (req,
 
     // 3. Activate/create license (handles both new and legacy pending licenses)
     const { licenseId } = await activateLicenseForUser(user.id, {
-      customerName: user.businessName,
+      customerName: user.businessName ?? undefined,
       email: user.email ?? undefined,
       phone: user.phone ?? undefined,
       businessName: user.businessName ?? undefined,

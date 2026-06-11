@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { db, usersTable, businessProfilesTable, licensesTable, premiumRequestsTable } from "@workspace/db";
-import { eq, and, gt } from "drizzle-orm";
+import { eq, and, gt, desc } from "drizzle-orm";
 import { generateLicenseKey, generateReferralCode } from "../lib/utils";
 import { sendEmail, templates } from "../lib/notifications";
 import { USER_JWT_SECRET } from "../middlewares/auth";
@@ -45,6 +45,7 @@ async function getPremiumRequest(userId: number) {
     .select()
     .from(premiumRequestsTable)
     .where(eq(premiumRequestsTable.userId, userId))
+    .orderBy(desc(premiumRequestsTable.id))
     .limit(1);
   return req ?? null;
 }

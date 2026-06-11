@@ -186,14 +186,6 @@ router.post("/admin/login", async (req, res) => {
     console.log(`Admin login attempt for: ${username}`);
     let [admin] = await db.select().from(adminsTable).where(eq(adminsTable.username, username)).limit(1);
 
-    // Development fallback for Mock Mode
-    if (!admin && username === "admin" && password === "admin" && process.env.NODE_ENV !== "production") {
-      console.log("Using mock admin fallback");
-      const token = jwt.sign({ adminId: "mock-admin" }, JWT_SECRET, { expiresIn: "24h" });
-      res.json({ token });
-      return;
-    }
-
     if (!admin) {
       console.log("Admin not found in DB");
       const existingAdmins = await db.select().from(adminsTable).limit(1);
