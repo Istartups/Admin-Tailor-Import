@@ -1,15 +1,15 @@
 import { useLocation } from "wouter";
-import { useState } from "react";
-import { 
-  Search, Star, Crown, ChevronRight, Grid3X3, Clock, ArrowRight, 
-  ShieldCheck, X, ExternalLink, Users, UserPlus, Ruler, LayoutGrid, 
-  ChevronDown, MessageCircle, MoreHorizontal
+import { useState, useEffect, useMemo } from "react";
+import {
+  Search, Star, Crown, ChevronRight, Grid3X3, Clock, ArrowRight,
+  ShieldCheck, X, ExternalLink, Users, Ruler, LayoutGrid,
+  ChevronDown, MoreHorizontal
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { ALL_TOOLS, CATEGORY_LABELS, type ToolCategory, getToolById } from "@/lib/tools";
 import { PremiumStatusBanner } from "@/components/PremiumStatusBanner";
+import { getDeviceId } from "@/lib/utils";
 
-const POPULAR_TOOL_IDS = ["watermark", "delivery-date", "fabric-requirement", "queue-manager", "profit", "whatsapp-link"];
 const CATEGORIES: { id: ToolCategory; emoji: string }[] = [
   { id: "tailoring", emoji: "🧵" },
   { id: "marketing", emoji: "📣" },
@@ -17,32 +17,34 @@ const CATEGORIES: { id: ToolCategory; emoji: string }[] = [
   { id: "media",     emoji: "🖼️" },
 ];
 
-function ToolChip({ toolId, onClick, isFav, onFav }: { toolId: string; onClick: () => void; isFav: boolean; onFav: () => void }) {
-  const tool = getToolById(toolId);
-  if (!tool) return null;
-  const Icon = tool.icon;
-  return (
-    <div className="w-full h-full rounded-2xl p-3 flex flex-col gap-2 active:scale-[0.96] transition-all"
-      style={{ background: "linear-gradient(135deg, hsl(218,44%,11%) 0%, hsl(218,40%,12%) 100%)", border: `1px solid ${tool.borderColor}` }}>
-      <div className="flex items-start justify-between">
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-          style={{ background: tool.iconBg, border: `1px solid ${tool.borderColor}` }}>
-          <Icon size={17} strokeWidth={2} style={{ color: tool.iconColor }} />
-        </div>
-        <button onClick={(e) => { e.stopPropagation(); onFav(); }}
-          className="w-6 h-6 flex items-center justify-center active:scale-90">
-          <Star size={13} fill={isFav ? "hsl(43,82%,55%)" : "none"} style={{ color: isFav ? "hsl(43,82%,55%)" : "hsl(218,20%,45%)" }} />
-        </button>
-      </div>
-      <button onClick={onClick} className="text-left flex-1 flex flex-col">
-        <p className="font-bold text-[11px] leading-tight flex-1" style={{ color: "hsl(43,25%,90%)" }}>{tool.name}</p>
-        {tool.isNew && (
-          <span className="inline-block w-fit text-[8px] font-bold px-1.5 py-0.5 rounded-full mt-1"
-            style={{ background: "rgba(74,222,128,0.12)", color: "hsl(142,65%,55%)", border: "1px solid rgba(74,222,128,0.2)" }}>NEW</span>
-        )}
-      </button>
-    </div>
-  );
+interface HomeCustomer {
+  id: number;
+  name: string;
+  phone: string;
+  gender: "male" | "female" | "others";
+}
+
+interface RecentMeasurement {
+  id: number;
+  customerId: number;
+  customerName: string | null;
+  label: string;
+  category: string;
+  createdAt: string;
+}
+
+function relativeDate(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const d = Math.floor(diff / 86400000);
+  if (d === 0) return "Today";
+  if (d === 1) return "Yesterday";
+  if (d < 7)  return `${d}d ago`;
+  if (d < 30) return `${Math.floor(d / 7)}w ago`;
+  return `${Math.floor(d / 30)}mo ago`;
+}
+
+function genderDot(g: string) {
+  return g === "female" ? "bg-pink-500" : g === "male" ? "bg-blue-500" : "bg-purple-500";
 }
 
 function ToolRow({ toolId, onClick, isFav, onFav }: { toolId: string; onClick: () => void; isFav: boolean; onFav: () => void }) {
@@ -75,38 +77,69 @@ function ToolRow({ toolId, onClick, isFav, onFav }: { toolId: string; onClick: (
 
 export default function Home() {
   const [, setLocation] = useLocation();
-  const isPremium          = useAppStore((s) => s.isPremium);
-  const appName        = useAppStore((s) => s.appName);
-  const appLogo        = useAppStore((s) => s.appLogo);
-  const favorites      = useAppStore((s) => s.favorites);
-  const recentTools    = useAppStore((s) => s.recentTools);
-  const proUpgradeMessage = useAppStore((s) => s.proUpgradeMessage);
-  const proUpgradeLink = useAppStore((s) => s.proUpgradeLink);
+
+  const isPremium           = useAppStore((s) => s.isPremium);
+  const appName             = useAppStore((s) => s.appName);
+  const appLogo             = useAppStore((s) => s.appLogo);
+  const favorites           = useAppStore((s) => s.favorites);
+  const recentTools         = useAppStore((s) => s.recentTools);
+  const proUpgradeMessage   = useAppStore((s) => s.proUpgradeMessage);
+  const proUpgradeLink      = useAppStore((s) => s.proUpgradeLink);
   const proUpgradeButtonText = useAppStore((s) => s.proUpgradeButtonText);
-  const toggleFavorite = useAppStore((s) => s.toggleFavorite);
-  const addRecentTool  = useAppStore((s) => s.addRecentTool);
+  const toggleFavorite      = useAppStore((s) => s.toggleFavorite);
+  const addRecentTool       = useAppStore((s) => s.addRecentTool);
+  const deviceId            = useAppStore((s) => s.deviceId);
+
   const logoSrc = appLogo ?? "/onetailor-logo.png";
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showProPopup, setShowProPopup] = useState(false);
 
-  const handleOpen = (toolId: string, path: string) => {
-    addRecentTool(toolId);
-    setLocation(path);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
+  const [searchQuery,   setSearchQuery]   = useState("");
+  const [showProPopup,  setShowProPopup]  = useState(false);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setLocation(`/all-tools?q=${encodeURIComponent(searchQuery)}`);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
+  // ── Add-Measurement modal ──────────────────────────────────────────────────
+  const [showMeasureModal,    setShowMeasureModal]    = useState(false);
+  const [modalSearch,         setModalSearch]         = useState("");
+  const [modalCustomers,      setModalCustomers]      = useState<HomeCustomer[]>([]);
+  const [modalLoading,        setModalLoading]        = useState(false);
 
-  const handleNavigate = (path: string) => {
-    setLocation(path);
-    window.dispatchEvent(new PopStateEvent("popstate"));
-  };
+  // ── Recent measurements widget ─────────────────────────────────────────────
+  const [recentMeasurements,   setRecentMeasurements]   = useState<RecentMeasurement[]>([]);
+  const [homeCategoryFilter,   setHomeCategoryFilter]   = useState("all");
 
-  // New Reordering Logic: Exclude favorites from recents
+  // Fetch recent measurements on mount
+  useEffect(() => {
+    if (!deviceId) return;
+    fetch(`/api/tailoring/measurements/recent?deviceId=${deviceId}&limit=8`)
+      .then(r => r.ok ? r.json() : [])
+      .then(setRecentMeasurements)
+      .catch(() => {});
+  }, [deviceId]);
+
+  // Fetch customers for modal
+  useEffect(() => {
+    if (!showMeasureModal) return;
+    setModalLoading(true);
+    const did = deviceId || getDeviceId();
+    const params = new URLSearchParams({ deviceId: did });
+    if (modalSearch) params.set("search", modalSearch);
+    fetch(`/api/tailoring/customers?${params}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: HomeCustomer[]) => { setModalCustomers(data); setModalLoading(false); })
+      .catch(() => setModalLoading(false));
+  }, [showMeasureModal, modalSearch, deviceId]);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+  const recentCategories = useMemo(() =>
+    [...new Set(recentMeasurements.map(m => m.category))].sort(),
+    [recentMeasurements]
+  );
+
+  const filteredRecentMeasurements = useMemo(() =>
+    homeCategoryFilter === "all"
+      ? recentMeasurements
+      : recentMeasurements.filter(m => m.category === homeCategoryFilter),
+    [recentMeasurements, homeCategoryFilter]
+  );
+
   const displayedFavorites = favorites.slice(0, 4);
   const filteredRecent = recentTools
     .filter(id => !displayedFavorites.includes(id))
@@ -120,10 +153,44 @@ export default function Home() {
     "social-video-resizer",
     "bg-remover"
   ];
-  const recommendedTools = RECOMMENDED_TOOL_IDS.map(id => getToolById(id)).filter((t): t is NonNullable<ReturnType<typeof getToolById>> => !!t);
+  const recommendedTools = RECOMMENDED_TOOL_IDS
+    .map(id => getToolById(id))
+    .filter((t): t is NonNullable<ReturnType<typeof getToolById>> => !!t);
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleOpen = (toolId: string, path: string) => {
+    addRecentTool(toolId);
+    setLocation(path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const handleNavigate = (path: string) => {
+    setLocation(path);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocation(`/all-tools?q=${encodeURIComponent(searchQuery)}`);
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  };
+
+  const handleSelectModalCustomer = (c: HomeCustomer) => {
+    setShowMeasureModal(false);
+    setModalSearch("");
+    handleNavigate(`/customer-measurement?action=new_measurement&customerId=${c.id}`);
+  };
+
+  const handleAddNewClientFromModal = () => {
+    setShowMeasureModal(false);
+    setModalSearch("");
+    handleNavigate("/customer-measurement?action=new_client");
+  };
+
+  // ───────────────────────────────────────────────────────────────────────────
   return (
     <div className="max-w-2xl mx-auto px-4 pb-8">
+
       {/* Header */}
       <div className="pt-7 pb-4">
         <div className="flex items-start justify-between">
@@ -146,7 +213,7 @@ export default function Home() {
             </div>
           </div>
           {isPremium ? (
-            <button 
+            <button
               onClick={() => setShowProPopup(true)}
               className="flex items-center gap-1.5 rounded-full px-3 py-1.5 active:scale-95 transition-transform"
               style={{ background: "rgba(212,160,32,0.1)", border: "1px solid rgba(212,160,32,0.3)", color: "hsl(43,82%,60%)", fontSize: 11, fontWeight: 700 }}>
@@ -176,13 +243,10 @@ export default function Home() {
               </button>
             </div>
             <div className="p-6 space-y-6">
-              <p className="text-sm text-foreground font-medium leading-relaxed">
-                {proUpgradeMessage}
-              </p>
-              
+              <p className="text-sm text-foreground font-medium leading-relaxed">{proUpgradeMessage}</p>
               <div className="space-y-3">
-                <a 
-                  href={proUpgradeLink || "#"} 
+                <a
+                  href={proUpgradeLink || "#"}
                   target={proUpgradeLink ? "_blank" : "_self"}
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-sm active:scale-[0.98] transition-all shadow-lg shadow-primary/20 gap-2"
@@ -190,10 +254,7 @@ export default function Home() {
                   <ExternalLink size={16} />
                   {proUpgradeButtonText}
                 </a>
-                <button 
-                  onClick={() => setShowProPopup(false)}
-                  className="w-full py-3 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
-                >
+                <button onClick={() => setShowProPopup(false)} className="w-full py-3 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">
                   Maybe Later
                 </button>
               </div>
@@ -202,7 +263,100 @@ export default function Home() {
         </div>
       )}
 
-      {/* Payment Status Banner — visible when user has a pending/rejected request */}
+      {/* Add Measurement Modal */}
+      {showMeasureModal && (
+        <div
+          className="fixed inset-0 z-[100] bg-black/70 backdrop-blur-sm flex items-end justify-center animate-in fade-in duration-200"
+          onClick={() => { setShowMeasureModal(false); setModalSearch(""); }}
+        >
+          <div
+            className="bg-card w-full max-w-lg rounded-t-3xl overflow-hidden shadow-2xl border border-border border-b-0 animate-in slide-in-from-bottom-4 duration-300 pb-safe"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Handle bar */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 rounded-full bg-border" />
+            </div>
+
+            <div className="px-5 pb-2 pt-2">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-black">Add Measurement</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Search for a client or add a new one</p>
+                </div>
+                <button
+                  onClick={() => { setShowMeasureModal(false); setModalSearch(""); }}
+                  className="w-8 h-8 flex items-center justify-center rounded-full bg-muted/50"
+                >
+                  <X size={15} />
+                </button>
+              </div>
+
+              {/* Search */}
+              <div className="relative mb-3">
+                <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground/50" />
+                <input
+                  autoFocus
+                  placeholder="Search client by name or phone…"
+                  value={modalSearch}
+                  onChange={e => setModalSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 rounded-xl text-sm outline-none bg-muted/30 border border-border focus:border-primary/50 transition-all"
+                />
+              </div>
+
+              {/* Add New Client option */}
+              <button
+                onClick={handleAddNewClientFromModal}
+                className="w-full flex items-center gap-3 p-3.5 rounded-2xl mb-3 bg-primary/10 border border-primary/20 text-primary active:scale-[0.98] transition-all text-left"
+              >
+                <div className="w-9 h-9 rounded-xl bg-primary/20 flex items-center justify-center shrink-0">
+                  <Users size={16} />
+                </div>
+                <div>
+                  <p className="text-sm font-black">Add New Client</p>
+                  <p className="text-[10px] font-medium opacity-70">Enter details and take measurements</p>
+                </div>
+                <ChevronRight size={14} className="ml-auto shrink-0" />
+              </button>
+
+              {/* Customer list */}
+              <div className="max-h-64 overflow-y-auto space-y-2 pb-4">
+                {modalLoading ? (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin border-primary" />
+                  </div>
+                ) : modalCustomers.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p className="text-xs">{modalSearch ? "No clients match your search" : "No clients yet"}</p>
+                  </div>
+                ) : (
+                  modalCustomers.map(c => (
+                    <button
+                      key={c.id}
+                      onClick={() => handleSelectModalCustomer(c)}
+                      className="w-full flex items-center gap-3 p-3 rounded-2xl bg-muted/20 border border-border hover:border-primary/30 active:scale-[0.98] transition-all text-left"
+                    >
+                      <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm ${c.gender === "female" ? "bg-pink-500/10 text-pink-500" : c.gender === "male" ? "bg-blue-500/10 text-blue-500" : "bg-purple-500/10 text-purple-500"}`}>
+                        {c.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate">{c.name}</p>
+                        <p className="text-[10px] text-muted-foreground">{c.phone}</p>
+                      </div>
+                      <div className="shrink-0 flex items-center gap-1.5">
+                        <Ruler size={13} className="text-primary" />
+                        <span className="text-[10px] font-bold text-primary">Measure</span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Status Banner */}
       <PremiumStatusBanner />
 
       {/* Search bar */}
@@ -222,7 +376,7 @@ export default function Home() {
         </div>
       </form>
 
-      {/* Clients Module */}
+      {/* ── Client Management ─────────────────────────────────────────────── */}
       <section className="mb-8">
         <div className="flex items-center justify-between mb-3 px-1">
           <div className="flex items-center gap-2">
@@ -231,7 +385,7 @@ export default function Home() {
             </div>
             <p className="text-xs font-black uppercase tracking-[0.15em] text-foreground/80">Client Management</p>
           </div>
-          <button 
+          <button
             onClick={() => handleNavigate("/customer-measurement")}
             className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
           >
@@ -239,36 +393,121 @@ export default function Home() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <button 
+        {/* 3-column shortcut grid */}
+        <div className="grid grid-cols-3 gap-2.5">
+          {/* Clients Database */}
+          <button
             onClick={() => handleNavigate("/customer-measurement")}
-            className="group flex items-center gap-3.5 p-4 rounded-2xl bg-gradient-to-br from-blue-600/10 to-blue-600/[0.02] border border-blue-500/20 active:scale-[0.98] transition-all text-left"
+            className="group flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-gradient-to-br from-blue-600/10 to-blue-600/[0.02] border border-blue-500/20 active:scale-[0.97] transition-all"
           >
             <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-lg shadow-blue-600/20 group-hover:scale-110 transition-transform">
-              <Users size={20} />
+              <Users size={19} />
             </div>
-            <div>
-              <p className="text-[13px] font-black text-foreground">Clients</p>
-              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">Database</p>
+            <div className="text-center">
+              <p className="text-[12px] font-black text-foreground leading-tight">Clients</p>
+              <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tight mt-0.5">Database</p>
             </div>
           </button>
 
-          <button 
+          {/* Add Measurement (shortcut) */}
+          <button
+            onClick={() => setShowMeasureModal(true)}
+            className="group flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-gradient-to-br from-emerald-600/10 to-emerald-600/[0.02] border border-emerald-500/20 active:scale-[0.97] transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-600/20 group-hover:scale-110 transition-transform">
+              <Ruler size={19} />
+            </div>
+            <div className="text-center">
+              <p className="text-[12px] font-black text-foreground leading-tight">Measure</p>
+              <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tight mt-0.5">Add Record</p>
+            </div>
+          </button>
+
+          {/* Cards Generator */}
+          <button
             onClick={() => handleNavigate("/measurement-card")}
-            className="group flex items-center gap-3.5 p-4 rounded-2xl bg-gradient-to-br from-amber-600/10 to-amber-600/[0.02] border border-amber-500/20 active:scale-[0.98] transition-all text-left"
+            className="group flex flex-col items-center gap-2.5 p-4 rounded-2xl bg-gradient-to-br from-amber-600/10 to-amber-600/[0.02] border border-amber-500/20 active:scale-[0.97] transition-all"
           >
             <div className="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center shadow-lg shadow-amber-600/20 group-hover:scale-110 transition-transform">
-              <LayoutGrid size={20} />
+              <LayoutGrid size={19} />
             </div>
-            <div>
-              <p className="text-[13px] font-black text-foreground">Cards</p>
-              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">Generator</p>
+            <div className="text-center">
+              <p className="text-[12px] font-black text-foreground leading-tight">Cards</p>
+              <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-tight mt-0.5">Generator</p>
             </div>
           </button>
         </div>
       </section>
 
-      {/* Favorites */}
+      {/* ── Recent Measurements Widget ──────────────────────────────────────── */}
+      {recentMeasurements.length > 0 && (
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary border border-primary/20">
+                <Ruler size={16} />
+              </div>
+              <p className="text-xs font-black uppercase tracking-[0.15em] text-foreground/80">Recent Measurements</p>
+            </div>
+            <button
+              onClick={() => handleNavigate("/customer-measurement")}
+              className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors"
+            >
+              All Clients <ChevronRight size={10} className="inline ml-0.5" />
+            </button>
+          </div>
+
+          {/* Category filter chips */}
+          {recentCategories.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-2 mb-3 no-scrollbar">
+              <button
+                onClick={() => setHomeCategoryFilter("all")}
+                className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${homeCategoryFilter === "all" ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
+              >
+                All
+              </button>
+              {recentCategories.map(cat => (
+                <button
+                  key={cat}
+                  onClick={() => setHomeCategoryFilter(cat)}
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all whitespace-nowrap ${homeCategoryFilter === cat ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Measurement cards */}
+          <div className="space-y-2">
+            {filteredRecentMeasurements.map(m => (
+              <button
+                key={m.id}
+                onClick={() => handleNavigate(`/customer-measurement?action=new_measurement&customerId=${m.customerId}`)}
+                className="w-full flex items-center gap-3 p-3.5 rounded-2xl bg-card border border-border hover:border-primary/20 active:scale-[0.98] transition-all text-left"
+              >
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                  <Ruler size={15} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-bold truncate">{m.label}</p>
+                    <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-primary/10 text-primary border border-primary/10">
+                      {m.category}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {m.customerName ?? "Unknown client"} · {relativeDate(m.createdAt)}
+                  </p>
+                </div>
+                <ChevronRight size={13} className="text-muted-foreground shrink-0" />
+              </button>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* ── Favorites ───────────────────────────────────────────────────────── */}
       {displayedFavorites.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3 px-1">
@@ -302,7 +541,7 @@ export default function Home() {
         </section>
       )}
 
-      {/* Recent Tools */}
+      {/* ── Recently Used ───────────────────────────────────────────────────── */}
       {filteredRecent.length > 0 && (
         <section className="mb-8">
           <div className="flex items-center justify-between mb-3 px-1">
@@ -336,7 +575,7 @@ export default function Home() {
         </section>
       )}
 
-      {/* Categories */}
+      {/* ── Categories ──────────────────────────────────────────────────────── */}
       <section className="mb-6">
         <div className="flex items-center justify-between mb-2.5">
           <p className="text-[10px] font-bold" style={{ color: "rgba(212,160,32,0.55)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Categories</p>
@@ -359,7 +598,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Recommended Tools */}
+      {/* ── Recommended Tools ───────────────────────────────────────────────── */}
       <section className="mb-6">
         <div className="flex items-center justify-between mb-2.5">
           <p className="text-[10px] font-bold" style={{ color: "rgba(212,160,32,0.55)", letterSpacing: "0.2em", textTransform: "uppercase" }}>Recommended Tools</p>
@@ -371,18 +610,18 @@ export default function Home() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           {recommendedTools.map((tool) => (
-            <ToolRow 
-              key={tool.id} 
+            <ToolRow
+              key={tool.id}
               toolId={tool.id}
               onClick={() => handleOpen(tool.id, tool.path)}
               isFav={favorites.includes(tool.id)}
-              onFav={() => toggleFavorite(tool.id)} 
+              onFav={() => toggleFavorite(tool.id)}
             />
           ))}
         </div>
       </section>
 
-      {/* Browse All */}
+      {/* ── Browse All ──────────────────────────────────────────────────────── */}
       <button onClick={() => handleNavigate("/all-tools")}
         className="w-full py-4 rounded-2xl font-bold text-sm flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
         style={{ background: "hsl(218,44%,11%)", border: "1px solid hsl(218,38%,18%)", color: "hsl(43,25%,88%)" }}>
@@ -391,7 +630,7 @@ export default function Home() {
         <ChevronRight size={15} className="text-muted-foreground/50" />
       </button>
 
-      {/* Premium Teaser */}
+      {/* ── Premium Teaser ───────────────────────────────────────────────────── */}
       {!isPremium && (
         <div onClick={() => setLocation("/upgrade")} className="mt-3 relative overflow-hidden p-6 rounded-[2.5rem] bg-slate-900 border border-primary/20 cursor-pointer active:scale-[0.98] transition-all group">
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors" />

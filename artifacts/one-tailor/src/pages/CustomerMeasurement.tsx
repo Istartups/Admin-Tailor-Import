@@ -177,7 +177,8 @@ export default function CustomerMeasurement() {
   const [loading, setLoading]         = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showOptional, setShowOptional] = useState(false);
-  const [genderFilter, setGenderFilter] = useState<"all" | Gender>("all");
+  const [genderFilter, setGenderFilter]     = useState<"all" | Gender>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
 
   // ── Data state ──
   const [customers, setCustomers]         = useState<Customer[]>([]);
@@ -232,6 +233,38 @@ export default function CustomerMeasurement() {
     } catch (e) { console.error(e); }
   };
 
+  // ─── URL param deep-link (from Home "Add Measurement" shortcut) ────────────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get("action");
+    const cIdParam = params.get("customerId");
+
+    if (action === "new_client") {
+      setView("add_client");
+      return;
+    }
+
+    if (action === "new_measurement" && cIdParam) {
+      const cId = parseInt(cIdParam);
+      fetch(`/api/tailoring/customers?deviceId=${getDeviceId()}`)
+        .then(r => r.json())
+        .then((all: Customer[]) => {
+          setCustomers(all);
+          const c = all.find(x => x.id === cId);
+          if (c) {
+            setSelectedCustomer(c);
+            fetch(`/api/tailoring/measurements/${cId}`)
+              .then(r => r.json())
+              .then(setMeasurements)
+              .catch(console.error);
+            setMeasurementForm({ id: undefined, label: "Initial Measurement", category: "", unit: "Inches", values: {}, customFields: [] });
+            setView("add_measurement");
+          }
+        })
+        .catch(console.error);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
   const getTemplateFields = useCallback((category: string): string[] => {
@@ -257,6 +290,16 @@ export default function CustomerMeasurement() {
       .map(t => t.name);
     return [...systemCats, ...customCats];
   }, [customerForm.gender, selectedCustomer?.gender, customTemplates]);
+
+  const uniqueCategories = useMemo(() =>
+    [...new Set(measurements.map(m => m.category))].sort(),
+    [measurements]
+  );
+
+  const displayedMeasurements = useMemo(() =>
+    categoryFilter === "all" ? measurements : measurements.filter(m => m.category === categoryFilter),
+    [measurements, categoryFilter]
+  );
 
   const parseMeasurements = (valStr: string) => {
     try {
@@ -459,6 +502,7 @@ export default function CustomerMeasurement() {
   const handleViewDetail = (c: Customer) => {
     setSelectedCustomer(c);
     fetchMeasurements(c.id);
+    setCategoryFilter("all");
     setView("client_detail");
   };
 
@@ -780,19 +824,45 @@ export default function CustomerMeasurement() {
                 <span className="text-[10px] text-muted-foreground">{measurements.length} record{measurements.length !== 1 ? "s" : ""}</span>
               </div>
 
-              {measurements.length === 0 ? (
+              {/* Category filter chips */}
+              {uniqueCategories.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                  <button
+                    onClick={() => setCategoryFilter("all")}
+                    className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${categoryFilter === "all" ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
+                  >
+                    All ({measurements.length})
+                  </button>
+                  {uniqueCategories.map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setCategoryFilter(cat)}
+                      className={`shrink-0 px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all whitespace-nowrap ${categoryFilter === cat ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
+                    >
+                      {cat} ({measurements.filter(m => m.category === cat).length})
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {displayedMeasurements.length === 0 ? (
                 <div className="text-center py-16 bg-card border border-dashed border-border rounded-3xl">
                   <Ruler size={32} className="mx-auto text-muted-foreground/20 mb-3" />
-                  <p className="text-xs text-muted-foreground">No measurements recorded yet</p>
-                  <button
-                    onClick={() => setView("add_measurement")}
-                    className="mt-4 text-xs font-black text-primary uppercase tracking-widest"
-                  >
-                    Create First Record
-                  </button>
+                  <p className="text-xs text-muted-foreground">
+                    {categoryFilter === "all" ? "No measurements recorded yet" : `No "${categoryFilter}" records`}
+                  </p>
+                  {categoryFilter === "all" ? (
+                    <button onClick={() => setView("add_measurement")} className="mt-4 text-xs font-black text-primary uppercase tracking-widest">
+                      Create First Record
+                    </button>
+                  ) : (
+                    <button onClick={() => setCategoryFilter("all")} className="mt-3 text-xs font-bold text-muted-foreground">
+                      Clear filter
+                    </button>
+                  )}
                 </div>
               ) : (
-                measurements.map(m => (
+                displayedMeasurements.map(m => (
                   <div key={m.id} className="bg-card border border-border rounded-2xl overflow-hidden shadow-sm hover:border-primary/20 transition-all">
                     <div className="p-4 bg-muted/10 flex justify-between items-center border-b border-border">
                       <div>

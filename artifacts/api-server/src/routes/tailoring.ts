@@ -86,6 +86,41 @@ router.delete("/tailoring/customers/:id", async (req, res) => {
 
 // --- Measurement Management ---
 
+// Recent measurements across all customers for this device (home page widget)
+router.get("/tailoring/measurements/recent", async (req, res) => {
+  const { deviceId, limit = "8", category } = req.query;
+  if (!deviceId) return void res.status(400).json({ message: "deviceId required" });
+
+  try {
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.deviceId, deviceId as string)).limit(1);
+    if (!user) return void res.status(404).json({ message: "User not found" });
+
+    const whereClause = category
+      ? and(eq(tailoringCustomersTable.userId, user.id), eq(tailoringMeasurementsTable.category, category as string))
+      : eq(tailoringCustomersTable.userId, user.id);
+
+    const results = await db
+      .select({
+        id: tailoringMeasurementsTable.id,
+        customerId: tailoringMeasurementsTable.customerId,
+        customerName: tailoringCustomersTable.name,
+        label: tailoringMeasurementsTable.label,
+        category: tailoringMeasurementsTable.category,
+        createdAt: tailoringMeasurementsTable.createdAt,
+      })
+      .from(tailoringMeasurementsTable)
+      .leftJoin(tailoringCustomersTable, eq(tailoringMeasurementsTable.customerId, tailoringCustomersTable.id))
+      .where(whereClause)
+      .orderBy(desc(tailoringMeasurementsTable.createdAt))
+      .limit(parseInt(limit as string) || 8);
+
+    return void res.json(results);
+  } catch (error) {
+    console.error("[TAILORING] Recent measurements error:", error);
+    return void res.status(500).json({ message: "Internal server error" });
+  }
+});
+
 // List Measurements for a Customer
 router.get("/tailoring/measurements/:customerId", async (req, res) => {
   const { customerId } = req.params;
