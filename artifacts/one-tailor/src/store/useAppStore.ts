@@ -88,6 +88,15 @@ export interface MeasurementRecord {
   updatedAt: string;
 }
 
+export interface GarmentTemplate {
+  id: string;
+  name: string;
+  gender: "male" | "female" | "both";
+  fields: string[];
+  isCustom: true;
+  createdAt: string;
+}
+
 export interface BusinessProfile {
   name: string;
   phone: string;
@@ -217,6 +226,12 @@ export interface AppState {
   importData: (data: { customers: Customer[]; measurements: MeasurementRecord[] }) => void;
   clearData: () => void;
 
+  customTemplates: GarmentTemplate[];
+  customMeasurementFields: string[];
+  addCustomTemplate: (t: Omit<GarmentTemplate, "id" | "createdAt" | "isCustom">) => void;
+  deleteCustomTemplate: (id: string) => void;
+  addCustomMeasurementField: (name: string) => void;
+
   // ─── Account actions ────────────────────────────────────────────────────────
   setAccount: (account: AccountInfo | null) => void;
   setPendingPremiumRequest: (pending: boolean) => void;
@@ -265,6 +280,8 @@ export const useAppStore = create<AppState>()(
       recentTools: [],
       customers: [],
       measurements: [],
+      customTemplates: [],
+      customMeasurementFields: [],
       upgradeLink: "",
       measurementLimit: 25,
       proUpgradeMessage:
@@ -389,6 +406,23 @@ export const useAppStore = create<AppState>()(
         })),
       deleteMeasurement: (id) =>
         set((state) => ({ measurements: state.measurements.filter((m) => m.id !== id) })),
+
+      addCustomTemplate: (t) =>
+        set((state) => ({
+          customTemplates: [
+            ...state.customTemplates,
+            { ...t, id: `tpl_${Date.now()}`, isCustom: true as const, createdAt: new Date().toISOString() },
+          ],
+        })),
+      deleteCustomTemplate: (id) =>
+        set((state) => ({ customTemplates: state.customTemplates.filter((t) => t.id !== id) })),
+      addCustomMeasurementField: (name) =>
+        set((state) => ({
+          customMeasurementFields: state.customMeasurementFields.includes(name)
+            ? state.customMeasurementFields
+            : [...state.customMeasurementFields, name],
+        })),
+
       setUpgradeLink: (link) => set({ upgradeLink: link }),
       setSystemSettings: (s) =>
         set((state) => ({
