@@ -97,7 +97,24 @@ router.post("/license/recover", async (req, res) => {
 router.get("/admin/licenses", authenticateAdmin as any, async (req, res) => {
   try {
     const licenses = await db.select().from(licensesTable).orderBy(desc(licensesTable.createdAt));
-    res.json(licenses);
+    // Enrich licenses that have a userId but missing name/contact fields with user data
+    const enriched = await Promise.all(licenses.map(async (lic) => {
+      if (lic.userId && (!lic.businessName || !lic.email || !lic.phone)) {
+        try {
+          const [user] = await db.select().from(usersTable).where(eq(usersTable.id, lic.userId)).limit(1);
+          if (user) {
+            return {
+              ...lic,
+              businessName: lic.businessName || user.businessName || null,
+              email: lic.email || user.email || null,
+              phone: lic.phone || user.phone || null,
+            };
+          }
+        } catch { /* non-critical — return original */ }
+      }
+      return lic;
+    }));
+    res.json(enriched);
   } catch (error) {
     res.status(500).json({ message: "Internal server error" });
   }

@@ -93,8 +93,8 @@ export default function PaymentSettings() {
     }
   };
 
-  const cardStyle = { background: "hsl(218,44%,11%)", border: "1px solid hsl(218,38%,18%)" };
-  const inputStyle = { background: "hsl(218,44%,13%)", borderColor: "hsl(218,38%,22%)", color: "hsl(43,25%,88%)" };
+  const cardStyle = {};
+  const inputStyle = {};
 
   if (loading) return <div className="p-20 text-center"><Loader2 className="animate-spin mx-auto w-10 h-10 text-primary" /></div>;
 

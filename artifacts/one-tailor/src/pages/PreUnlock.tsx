@@ -60,7 +60,7 @@ export default function PreUnlock() {
       if (premiumRequestStatus === "pending") return "payment_method";
       return "features";
     }
-    return "create_account"; // anonymous → lead form first
+    return "features"; // show premium pitch first
   };
 
   const [step, setStep] = useState<Step>(getInitialStep);
@@ -166,7 +166,7 @@ export default function PreUnlock() {
     if (form.password !== form.confirmPassword) {
       toast({ title: "Passwords Don't Match", description: "Please re-enter your password.", variant: "destructive" }); return;
     }
-    setStep("features"); // show upgrade details after lead form
+    setStep("business_details"); // proceed to location step
   };
 
   // ─── Step 1b: Register & Proceed to Payment ───────────────────────────────
@@ -351,19 +351,11 @@ export default function PreUnlock() {
 
             <div className="space-y-3">
               <button
-                onClick={() => account ? setStep("payment_method") : setStep("business_details")}
+                onClick={() => account ? setStep("payment_method") : setStep("create_account")}
                 className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
               >
-                {account ? "Choose Payment Method" : "Continue to Payment "}
+                {account ? "Choose Payment Method" : "Get Started →"}
               </button>
-              {!account && (
-                <button
-                  onClick={() => setStep("create_account")}
-                  className="w-full py-2 text-sm font-semibold text-muted-foreground"
-                >
-                  ← Back
-                </button>
-              )}
               <button
                 onClick={() => navigate("/account-login")}
                 className="w-full py-2 text-sm font-semibold text-muted-foreground flex items-center justify-center gap-2"
@@ -503,7 +495,7 @@ export default function PreUnlock() {
                   <label className={labelClass}>City</label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                    <input type="text" placeholder="Lagos" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
+                    <input type="text" placeholder="e.g. Ikeja" value={form.city} onChange={e => setForm(f => ({ ...f, city: e.target.value }))}
                       className="w-full pl-9 pr-3 py-3 rounded-xl bg-card border border-border outline-none focus:border-primary text-sm" />
                   </div>
                 </div>
@@ -511,7 +503,7 @@ export default function PreUnlock() {
                   <label className={labelClass}>State</label>
                   <div className="relative">
                     <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={14} />
-                    <input type="text" placeholder="Ikeja" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
+                    <input type="text" placeholder="e.g. Lagos" value={form.state} onChange={e => setForm(f => ({ ...f, state: e.target.value }))}
                       className="w-full pl-9 pr-3 py-3 rounded-xl bg-card border border-border outline-none focus:border-primary text-sm" />
                   </div>
                 </div>

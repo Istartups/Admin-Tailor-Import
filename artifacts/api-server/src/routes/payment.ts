@@ -496,6 +496,31 @@ router.post("/payment/manual", upload.single("evidence"), async (req, res) => {
   }
 });
 
+// ─── PWA Manifest (public) ────────────────────────────────────────────────────
+
+router.get("/pwa-manifest", async (req, res) => {
+  try {
+    const [s] = await db.select().from(paymentSettingsTable).where(eq(paymentSettingsTable.id, 1)).limit(1);
+    const manifest = {
+      name: s?.pwaName || "OneTailor Toolkit",
+      short_name: s?.pwaShortName || "OneTailor",
+      description: s?.pwaDescription || "All the tools a tailor needs, in one place.",
+      theme_color: s?.pwaThemeColor || "#6D28D9",
+      background_color: s?.pwaBackgroundColor || "#ffffff",
+      display: "standalone",
+      start_url: "/",
+      icons: [
+        { src: "/pwa-192x192.png", sizes: "192x192", type: "image/png" },
+        { src: "/pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+      ]
+    };
+    res.setHeader("Content-Type", "application/manifest+json");
+    return void res.json(manifest);
+  } catch {
+    return void res.status(500).json({ message: "Could not load manifest" });
+  }
+});
+
 // ─── Admin Routes ─────────────────────────────────────────────────────────────
 
 router.put("/payment-info", authenticateAdmin as any, async (req, res) => {
@@ -511,6 +536,8 @@ router.put("/payment-info", authenticateAdmin as any, async (req, res) => {
       "proUpgradeLink", "proUpgradeButtonText",
       "currencyCode", "currencySymbol",
       "isDebugMode", "isUsageLimitEnabled",
+      "pwaName", "pwaShortName", "pwaDescription",
+      "pwaThemeColor", "pwaBackgroundColor",
     ];
 
     for (const key of allowedFields) {

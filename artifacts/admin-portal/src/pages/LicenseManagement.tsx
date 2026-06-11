@@ -204,22 +204,28 @@ export default function LicenseManagement() {
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
-                          disabled={!l.phone}
-                          onClick={() => openWhatsApp(l.phone!, `Hello ${l.businessName},\n\nYour OneTailor Premium License is ready!\n\nLicense Key: ${l.key}\n\nThank you for choosing OneTailor!`)} 
+                          onClick={() => {
+                            if (!l.phone) { toast({ title: "No phone number", description: "This license has no phone number on record." }); return; }
+                            openWhatsApp(l.phone, `Hello ${l.businessName || l.customerName || "Customer"},\n\nYour OneTailor Premium License is ready!\n\nLicense Key: ${l.key}\n\nThank you for choosing OneTailor!`);
+                          }} 
                           className="rounded-lg gap-2 cursor-pointer text-emerald-500"
                         >
                           <MessageSquare size={14} /> Send WhatsApp
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          disabled={!l.phone}
-                          onClick={() => openSMS(l.phone!, `Hello ${l.businessName}, your OneTailor License is: ${l.key}`)} 
+                          onClick={() => {
+                            if (!l.phone) { toast({ title: "No phone number", description: "This license has no phone number on record." }); return; }
+                            openSMS(l.phone, `Hello ${l.businessName || l.customerName || "Customer"}, your OneTailor License is: ${l.key}`);
+                          }} 
                           className="rounded-lg gap-2 cursor-pointer text-blue-500"
                         >
                           <Send size={14} /> Send SMS
                         </DropdownMenuItem>
                         <DropdownMenuItem 
-                          disabled={!l.email}
-                          onClick={() => openEmail(l.email!, "Your OneTailor License Key", `Hello ${l.businessName},\n\nYour OneTailor Premium License is ready!\n\nLicense Key: ${l.key}\n\nThank you for choosing OneTailor!`)} 
+                          onClick={() => {
+                            if (!l.email) { toast({ title: "No email", description: "This license has no email on record." }); return; }
+                            openEmail(l.email, "Your OneTailor License Key", `Hello ${l.businessName || l.customerName || "Customer"},\n\nYour OneTailor Premium License is ready!\n\nLicense Key: ${l.key}\n\nThank you for choosing OneTailor!`);
+                          }} 
                           className="rounded-lg gap-2 cursor-pointer text-orange-500"
                         >
                           <Mail size={14} /> Send Email

@@ -87,6 +87,11 @@ async function startServer() {
       { name: "pro_upgrade_button_text", type: "TEXT" },
       { name: "is_debug_mode",         type: "BOOLEAN NOT NULL DEFAULT FALSE" },
       { name: "is_usage_limit_enabled",type: "BOOLEAN NOT NULL DEFAULT TRUE" },
+      { name: "pwa_name",              type: "TEXT" },
+      { name: "pwa_short_name",        type: "TEXT" },
+      { name: "pwa_description",       type: "TEXT" },
+      { name: "pwa_theme_color",       type: "TEXT" },
+      { name: "pwa_background_color",  type: "TEXT" },
     ];
     for (const col of settingsColumns) {
       try { await db.execute(sql.raw(`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}

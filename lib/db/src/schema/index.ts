@@ -109,6 +109,11 @@ export const paymentSettingsTable = pgTable("payment_settings", {
   isDebugMode: boolean("is_debug_mode").default(false),
   isUsageLimitEnabled: boolean("is_usage_limit_enabled").default(true),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  pwaName: text("pwa_name"),
+  pwaShortName: text("pwa_short_name"),
+  pwaDescription: text("pwa_description"),
+  pwaThemeColor: text("pwa_theme_color"),
+  pwaBackgroundColor: text("pwa_background_color"),
 });
 
 export const businessProfilesTable = pgTable("business_profiles", {

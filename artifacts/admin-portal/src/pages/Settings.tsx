@@ -36,7 +36,8 @@ import {
   AlertTriangle,
   Palette,
   ShieldAlert,
-  RefreshCw
+  RefreshCw,
+  Smartphone
 } from "lucide-react";
 
 interface PaymentInfo {
@@ -53,6 +54,11 @@ interface PaymentInfo {
   proUpgradeButtonText: string;
   isUsageLimitEnabled: boolean;
   isDebugMode: boolean;
+  pwaName: string;
+  pwaShortName: string;
+  pwaDescription: string;
+  pwaThemeColor: string;
+  pwaBackgroundColor: string;
 }
 
 export default function Settings() {
@@ -91,6 +97,11 @@ export default function Settings() {
     proUpgradeButtonText: "",
     isUsageLimitEnabled: true,
     isDebugMode: false,
+    pwaName: "",
+    pwaShortName: "",
+    pwaDescription: "",
+    pwaThemeColor: "#6D28D9",
+    pwaBackgroundColor: "#ffffff",
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -117,6 +128,11 @@ export default function Settings() {
           isUsageLimitEnabled: data.isUsageLimitEnabled ?? true,
           isDebugMode: data.isDebugMode ?? false,
           proUpgradeButtonText: data.proUpgradeButtonText || "",
+          pwaName: data.pwaName || "",
+          pwaShortName: data.pwaShortName || "",
+          pwaDescription: data.pwaDescription || "",
+          pwaThemeColor: data.pwaThemeColor || "#6D28D9",
+          pwaBackgroundColor: data.pwaBackgroundColor || "#ffffff",
         });
       }
     } catch (error) {
@@ -215,14 +231,17 @@ export default function Settings() {
       </div>
 
       <Tabs defaultValue="appearance" className="w-full">
-        <TabsList className="bg-primary/5 border border-primary/10 rounded-2xl p-1 mb-8">
-          <TabsTrigger value="appearance" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
+        <TabsList className="bg-primary/5 border border-primary/10 rounded-2xl p-1 mb-8 flex flex-wrap gap-1">
+          <TabsTrigger value="appearance" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
             <Palette className="w-4 h-4" /> Appearance
           </TabsTrigger>
-          <TabsTrigger value="system" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
+          <TabsTrigger value="system" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
             <Globe className="w-4 h-4" /> System Config
           </TabsTrigger>
-          <TabsTrigger value="security" className="rounded-xl px-6 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
+          <TabsTrigger value="pwa" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
+            <Smartphone className="w-4 h-4" /> PWA
+          </TabsTrigger>
+          <TabsTrigger value="security" className="rounded-xl px-5 py-2.5 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground flex items-center gap-2 font-bold transition-all">
             <Lock className="w-4 h-4" /> Security & Controls
           </TabsTrigger>
         </TabsList>
@@ -434,6 +453,98 @@ export default function Settings() {
                 >
                   {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
                   Save All System Settings
+                </Button>
+              </div>
+            </form>
+          </section>
+        </TabsContent>
+
+        <TabsContent value="pwa" className="space-y-6 animate-in fade-in slide-in-from-bottom-2">
+          <section className="space-y-4">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-foreground">
+              <Smartphone className="w-5 h-5 text-primary" /> PWA App Branding
+            </h2>
+            <p className="text-sm text-muted-foreground">Controls the app name, theme colour, and description shown when users install the PWA on their device. Changes take effect on the next app load.</p>
+            <form onSubmit={handleSaveSystem} className="space-y-6">
+              <Card className="rounded-3xl border-border bg-card overflow-hidden">
+                <CardContent className="p-6 space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Name</label>
+                      <Input
+                        value={settings.pwaName}
+                        onChange={(e) => setSettings({ ...settings, pwaName: e.target.value })}
+                        placeholder="OneTailor Toolkit"
+                        className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Short Name (home screen)</label>
+                      <Input
+                        value={settings.pwaShortName}
+                        onChange={(e) => setSettings({ ...settings, pwaShortName: e.target.value })}
+                        placeholder="OneTailor"
+                        className="h-12 rounded-xl bg-muted/30 border-border font-bold text-foreground"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Theme Colour</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={settings.pwaThemeColor || "#6D28D9"}
+                          onChange={(e) => setSettings({ ...settings, pwaThemeColor: e.target.value })}
+                          className="w-12 h-12 rounded-xl border border-border cursor-pointer bg-transparent"
+                        />
+                        <Input
+                          value={settings.pwaThemeColor}
+                          onChange={(e) => setSettings({ ...settings, pwaThemeColor: e.target.value })}
+                          placeholder="#6D28D9"
+                          className="h-12 rounded-xl bg-muted/30 border-border font-mono font-bold text-foreground flex-1"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Background Colour (splash)</label>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="color"
+                          value={settings.pwaBackgroundColor || "#ffffff"}
+                          onChange={(e) => setSettings({ ...settings, pwaBackgroundColor: e.target.value })}
+                          className="w-12 h-12 rounded-xl border border-border cursor-pointer bg-transparent"
+                        />
+                        <Input
+                          value={settings.pwaBackgroundColor}
+                          onChange={(e) => setSettings({ ...settings, pwaBackgroundColor: e.target.value })}
+                          placeholder="#ffffff"
+                          className="h-12 rounded-xl bg-muted/30 border-border font-mono font-bold text-foreground flex-1"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">App Description</label>
+                    <Textarea
+                      value={settings.pwaDescription}
+                      onChange={(e) => setSettings({ ...settings, pwaDescription: e.target.value })}
+                      placeholder="All the tools a tailor needs, in one place."
+                      className="min-h-[80px] rounded-xl bg-muted/30 border-border font-medium leading-relaxed text-foreground"
+                    />
+                  </div>
+                  <div className="rounded-2xl bg-primary/5 border border-primary/10 p-4 text-xs text-muted-foreground">
+                    <span className="font-bold text-primary">Live manifest URL: </span>
+                    <code className="font-mono">/api/pwa-manifest</code> — browsers fetch this dynamically on each install.
+                  </div>
+                </CardContent>
+              </Card>
+              <div className="flex justify-end pt-2">
+                <Button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-2xl px-8 h-12 bg-primary text-primary-foreground font-bold shadow-lg shadow-primary/20 hover:scale-[1.02] active:scale-95 transition-all"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+                  Save PWA Settings
                 </Button>
               </div>
             </form>
