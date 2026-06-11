@@ -16,6 +16,7 @@ const Compressor                  = lazy(() => import("@/pages/Compressor"));
 const WhatsAppLink                = lazy(() => import("@/pages/WhatsAppLink"));
 const Profit                      = lazy(() => import("@/pages/Profit"));
 const PreUnlock                   = lazy(() => import("@/pages/PreUnlock"));
+const PremiumDetails              = lazy(() => import("@/pages/PremiumDetails"));
 const AccountLogin                = lazy(() => import("@/pages/AccountLogin"));
 const ResetPassword               = lazy(() => import("@/pages/ResetPassword"));
 const Settings                    = lazy(() => import("@/pages/Settings"));
@@ -67,6 +68,7 @@ function Router() {
         <Route path="/profit"             component={Profit} />
         <Route path="/pre-unlock"         component={PreUnlock} />
         <Route path="/pre-unlock/:sub"    component={PreUnlock} />
+        <Route path="/premium"            component={PremiumDetails} />
         <Route path="/account-login"      component={AccountLogin} />
         <Route path="/reset-password"     component={ResetPassword} />
         <Route path="/fabric-cost"        component={FabricCost} />

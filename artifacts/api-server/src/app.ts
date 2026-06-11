@@ -42,6 +42,12 @@ app.use("/api", rateLimiter);
 
 app.use("/api", router);
 
+// Serve uploads directory under /api/uploads so frontends can load evidence images
+const uploadsPath = path.resolve(__dirname, "..", "uploads");
+if (fs.existsSync(uploadsPath)) {
+  app.use("/api/uploads", express.static(uploadsPath));
+}
+
 // Serve static files ONLY if the directory exists
 const publicPath = path.resolve(__dirname, "..", "public");
 if (fs.existsSync(publicPath)) {

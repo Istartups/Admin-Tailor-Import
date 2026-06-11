@@ -185,7 +185,7 @@ export default function Payment() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
                         {p.evidenceUrl && (
-                          <DropdownMenuItem onClick={() => window.open(p.evidenceUrl, '_blank')} className="rounded-lg gap-2 cursor-pointer">
+                          <DropdownMenuItem onClick={() => window.open(p.evidenceUrl?.replace('/uploads/', '/api/uploads/'), '_blank')} className="rounded-lg gap-2 cursor-pointer">
                             <ImageIcon size={14} /> View Evidence
                           </DropdownMenuItem>
                         )}

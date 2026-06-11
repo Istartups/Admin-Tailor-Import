@@ -50,12 +50,14 @@ router.get("/admin/stats", authenticateAdmin as any, async (req, res) => {
     // 2. Filtered Stats (New Users, Activations, Revenue)
     let userQuery: any = db.select({ count: sql<number>`count(*)` }).from(usersTable);
     let activationQuery: any = db.select({ count: sql<number>`count(*)` }).from(licenseActivationsTable);
-    let revenueQuery: any = db.select({ total: sql<number>`sum(amount)`, count: sql<number>`count(*)` }).from(paymentsTable).where(eq(paymentsTable.status, "success"));
+    let revenueQuery: any = db.select({ total: sql<number>`sum(amount)`, count: sql<number>`count(*)` }).from(paymentsTable);
 
     if (startDate) {
-      userQuery = userQuery.where(gte(usersTable.createdAt, startDate)) as any;
+      userQuery       = userQuery.where(gte(usersTable.createdAt, startDate)) as any;
       activationQuery = activationQuery.where(gte(licenseActivationsTable.activatedAt, startDate)) as any;
-      revenueQuery = revenueQuery.where(gte(paymentsTable.createdAt, startDate)) as any;
+      revenueQuery    = revenueQuery.where(and(eq(paymentsTable.status, "success"), gte(paymentsTable.verifiedAt, startDate))) as any;
+    } else {
+      revenueQuery = revenueQuery.where(eq(paymentsTable.status, "success")) as any;
     }
 
     const [newUsers] = await userQuery;
