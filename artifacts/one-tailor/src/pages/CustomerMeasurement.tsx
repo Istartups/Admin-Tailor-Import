@@ -200,6 +200,9 @@ export default function CustomerMeasurement() {
     customFields: [] as { name: string; value: string }[]
   });
 
+  // ── Measurement add sub-step (unit → template → fields) ──
+  const [measureAddStep, setMeasureAddStep] = useState<"unit" | "template" | "fields">("unit");
+
   // ── Template builder form ──
   const [showCreateTemplate, setShowCreateTemplate] = useState(false);
   const [templateBuilderForm, setTemplateBuilderForm] = useState({
@@ -435,6 +438,7 @@ export default function CustomerMeasurement() {
       values: {},
       customFields: []
     });
+    setMeasureAddStep("fields");
     setView("add_measurement");
   };
 
@@ -628,13 +632,6 @@ export default function CustomerMeasurement() {
                 <span className="text-xs font-black uppercase tracking-widest">Add Client</span>
                 <UserPlus size={20} />
               </button>
-              <button
-                onClick={() => toast({ title: "Select Client", description: "Tap a client first to add a measurement." })}
-                className="flex items-center gap-3 bg-card text-foreground border border-border pl-4 pr-4 py-3.5 rounded-2xl shadow-2xl active:scale-95 transition-all"
-              >
-                <span className="text-xs font-black uppercase tracking-widest">Add Measurement</span>
-                <Ruler size={20} />
-              </button>
             </div>
           </div>
         )}
@@ -791,6 +788,7 @@ export default function CustomerMeasurement() {
                 <button
                   onClick={() => {
                     setMeasurementForm({ id: undefined, label: "Initial Measurement", category: "", unit: "Inches", values: {}, customFields: [] });
+                    setMeasureAddStep("unit");
                     setView("add_measurement");
                   }}
                   className="flex flex-col items-center gap-1.5 p-3 rounded-2xl bg-primary/10 hover:bg-primary/20 text-primary transition-all"
@@ -932,77 +930,105 @@ export default function CustomerMeasurement() {
           </div>
         )}
 
-        {/* ── 4. ADD / EDIT MEASUREMENT ────────────────────────────────────── */}
-        {(view === "add_measurement" || view === "edit_measurement") && selectedCustomer && (
-          <form onSubmit={handleSaveMeasurement} className="bg-card border border-border rounded-3xl p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
-            <div className="space-y-5">
+        {/* ── 4. ADD MEASUREMENT (stepped: unit → template → fields) ─────────── */}
+        {view === "add_measurement" && selectedCustomer && (
+          <div className="space-y-4 animate-in fade-in duration-300">
 
-              {/* Record name */}
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Record Name *</label>
-                <input
-                  placeholder="e.g. Wedding Suit"
-                  value={measurementForm.label}
-                  onChange={e => setMeasurementForm({ ...measurementForm, label: e.target.value })}
-                  className={inp}
-                  required
-                />
-              </div>
+            {/* Step breadcrumb */}
+            <div className="flex gap-1.5 px-1">
+              {(["unit", "template", "fields"] as const).map((s, i) => (
+                <div key={s} className={`flex-1 h-1 rounded-full transition-all duration-300 ${
+                  measureAddStep === s ? "bg-primary" :
+                  ["unit","template","fields"].indexOf(measureAddStep) > i ? "bg-primary/40" : "bg-muted"
+                }`} />
+              ))}
+            </div>
 
-              {/* Unit */}
-              <div>
-                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Unit</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(["Inches", "CM"] as const).map(u => (
-                    <button
-                      key={u}
-                      type="button"
-                      onClick={() => setMeasurementForm({ ...measurementForm, unit: u })}
-                      className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${measurementForm.unit === u ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}
-                    >
-                      {u}
-                    </button>
-                  ))}
+            {/* ── Sub-step 1: Unit ─────────────────────────────────────────── */}
+            {measureAddStep === "unit" && (
+              <div className="bg-card border border-border rounded-3xl p-6 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Record Name</label>
+                  <input
+                    placeholder="e.g. Wedding Suit, School Uniform..."
+                    value={measurementForm.label}
+                    onChange={e => setMeasurementForm({ ...measurementForm, label: e.target.value })}
+                    className={inp}
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-3 block">
+                    Choose Measurement Unit
+                  </label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {(["Inches", "CM"] as const).map(u => (
+                      <button
+                        key={u}
+                        type="button"
+                        onClick={() => {
+                          setMeasurementForm({ ...measurementForm, unit: u });
+                          setTimeout(() => setMeasureAddStep("template"), 200);
+                        }}
+                        className={`py-8 rounded-2xl border-2 text-base font-black transition-all active:scale-95 ${
+                          measurementForm.unit === u
+                            ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/25"
+                            : "bg-card border-border text-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {u}
+                        <span className="block text-[10px] mt-1 font-normal opacity-70">{u === "Inches" ? "12\" = 1 ft" : "30cm = 1 ft"}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground text-center mt-4">Tap a unit to continue →</p>
                 </div>
               </div>
+            )}
 
-              {/* Template selection */}
-              <div>
-                <div className="flex items-center justify-between ml-1 mb-2">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Template *</label>
-                  <button
-                    type="button"
-                    onClick={() => setView("manage_templates")}
-                    className="text-[10px] font-bold text-primary flex items-center gap-1"
-                  >
-                    <SlidersHorizontal size={11} /> Manage
-                  </button>
+            {/* ── Sub-step 2: Template ─────────────────────────────────────── */}
+            {measureAddStep === "template" && (
+              <div className="bg-card border border-border rounded-3xl p-6 space-y-5 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full border border-primary/20 uppercase tracking-widest">
+                    {measurementForm.unit}
+                  </span>
+                  <div className="flex items-center justify-between flex-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Choose Template</label>
+                    <button
+                      type="button"
+                      onClick={() => setView("manage_templates")}
+                      className="text-[10px] font-bold text-primary flex items-center gap-1"
+                    >
+                      <SlidersHorizontal size={11} /> Manage
+                    </button>
+                  </div>
                 </div>
 
                 {/* System templates */}
-                {Object.entries(SYSTEM_TEMPLATES_META)
-                  .filter(([, meta]) => {
-                    const gender = selectedCustomer.gender;
-                    if (gender === "others") return true;
-                    return meta.gender === "both" || meta.gender === gender;
-                  }).length > 0 && (
-                  <div className="mb-3">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2 ml-0.5">System Templates</p>
+                {Object.entries(SYSTEM_TEMPLATES_META).filter(([, m]) => {
+                  const g = selectedCustomer.gender;
+                  return g === "others" || m.gender === "both" || m.gender === g;
+                }).length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2">System Templates</p>
                     <div className="grid grid-cols-2 gap-2">
                       {Object.entries(SYSTEM_TEMPLATES_META)
-                        .filter(([, meta]) => {
-                          const gender = selectedCustomer.gender;
-                          if (gender === "others") return true;
-                          return meta.gender === "both" || meta.gender === gender;
+                        .filter(([, m]) => {
+                          const g = selectedCustomer.gender;
+                          return g === "others" || m.gender === "both" || m.gender === g;
                         })
-                        .map(([cat]) => (
+                        .map(([cat, m]) => (
                           <button
                             key={cat}
                             type="button"
-                            onClick={() => setMeasurementForm({ ...measurementForm, category: cat, values: {} })}
-                            className={`p-3 text-left rounded-xl border text-xs font-bold transition-all ${measurementForm.category === cat ? "bg-primary/10 border-primary text-primary" : "bg-muted/20 border-border text-muted-foreground"}`}
+                            onClick={() => {
+                              setMeasurementForm({ ...measurementForm, category: cat, values: {} });
+                              setTimeout(() => setMeasureAddStep("fields"), 200);
+                            }}
+                            className="p-3 text-left rounded-xl border text-xs font-bold transition-all active:scale-95 bg-muted/20 border-border text-muted-foreground hover:border-primary/40 hover:bg-primary/5"
                           >
-                            {cat}
+                            <span className="block">{cat}</span>
+                            <span className="text-[9px] font-normal opacity-50">{m.fields.length} fields</span>
                           </button>
                         ))}
                     </div>
@@ -1012,140 +1038,195 @@ export default function CustomerMeasurement() {
                 {/* Custom templates */}
                 {filteredCategories.filter(c => !SYSTEM_TEMPLATES_META[c]).length > 0 && (
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2 ml-0.5">My Templates</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground/50 mb-2">My Templates</p>
                     <div className="grid grid-cols-2 gap-2">
-                      {filteredCategories
-                        .filter(c => !SYSTEM_TEMPLATES_META[c])
-                        .map(cat => (
-                          <button
-                            key={cat}
-                            type="button"
-                            onClick={() => setMeasurementForm({ ...measurementForm, category: cat, values: {} })}
-                            className={`p-3 text-left rounded-xl border text-xs font-bold transition-all ${measurementForm.category === cat ? "bg-primary/10 border-primary text-primary" : "bg-amber-500/10 border-amber-500/20 text-amber-600"}`}
-                          >
-                            {cat}
-                          </button>
-                        ))}
+                      {filteredCategories.filter(c => !SYSTEM_TEMPLATES_META[c]).map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => {
+                            setMeasurementForm({ ...measurementForm, category: cat, values: {} });
+                            setTimeout(() => setMeasureAddStep("fields"), 200);
+                          }}
+                          className="p-3 text-left rounded-xl border text-xs font-bold transition-all active:scale-95 bg-amber-500/10 border-amber-500/20 text-amber-600 hover:bg-amber-500/20"
+                        >
+                          {cat}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
-              </div>
 
-              {/* Measurement fields */}
-              {measurementForm.category && (
-                <div className="space-y-6 pt-4 border-t border-border">
+                <button
+                  type="button"
+                  onClick={() => setMeasureAddStep("unit")}
+                  className="w-full py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  ← Change Unit
+                </button>
+              </div>
+            )}
+
+            {/* ── Sub-step 3: Fields ───────────────────────────────────────── */}
+            {measureAddStep === "fields" && measurementForm.category && (
+              <form onSubmit={handleSaveMeasurement} className="bg-card border border-border rounded-3xl p-6 space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                {/* Summary chips */}
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="px-2.5 py-1 bg-primary/10 text-primary text-[10px] font-black rounded-full border border-primary/20 uppercase tracking-widest">{measurementForm.unit}</span>
+                  <span className="px-2.5 py-1 bg-muted text-foreground text-[10px] font-bold rounded-full border border-border">{measurementForm.category}</span>
+                  <button type="button" onClick={() => setMeasureAddStep("template")} className="text-[10px] text-primary font-bold ml-auto">Change</button>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Record Name</label>
+                  <input
+                    placeholder="e.g. Wedding Suit"
+                    value={measurementForm.label}
+                    onChange={e => setMeasurementForm({ ...measurementForm, label: e.target.value })}
+                    className={inp}
+                    required
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1 mb-3">Measurements ({measurementForm.unit})</p>
                   <div className="grid grid-cols-2 gap-4">
                     {getTemplateFields(measurementForm.category).map(field => (
                       <div key={field}>
                         <label className="text-[10px] font-bold text-muted-foreground mb-1.5 block">{field}</label>
                         <input
                           type="text"
+                          inputMode="decimal"
                           placeholder="0.0"
                           value={measurementForm.values[field] || ""}
-                          onChange={e => setMeasurementForm({
-                            ...measurementForm,
-                            values: { ...measurementForm.values, [field]: e.target.value }
-                          })}
+                          onChange={e => setMeasurementForm({ ...measurementForm, values: { ...measurementForm.values, [field]: e.target.value } })}
                           className={`${inp} py-2.5`}
                         />
                       </div>
                     ))}
                   </div>
+                </div>
 
-                  {/* Custom fields */}
-                  <div className="space-y-4 pt-4 border-t border-border/50">
+                {/* Extra fields */}
+                <div className="space-y-3 pt-2 border-t border-border/50">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Extra Fields</p>
+                    <button
+                      type="button"
+                      onClick={() => setMeasurementForm({ ...measurementForm, customFields: [...measurementForm.customFields, { name: "", value: "" }] })}
+                      className="text-[10px] font-bold text-primary flex items-center gap-1"
+                    >
+                      <Plus size={12} /> Add
+                    </button>
+                  </div>
+                  {customMeasurementFields.filter(f => !getTemplateFields(measurementForm.category).includes(f)).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {customMeasurementFields.filter(f => !getTemplateFields(measurementForm.category).includes(f)).map(f => (
+                        <button key={f} type="button"
+                          onClick={() => { if (!measurementForm.customFields.some(cf => cf.name === f)) setMeasurementForm({ ...measurementForm, customFields: [...measurementForm.customFields, { name: f, value: "" }] }); }}
+                          className="px-2 py-1 rounded-lg bg-muted/40 text-[10px] text-muted-foreground hover:bg-muted border border-border transition-all">
+                          + {f}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {measurementForm.customFields.map((cf, idx) => (
+                    <div key={idx} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <input placeholder="Field Name" value={cf.name}
+                          onChange={e => { const nf = [...measurementForm.customFields]; nf[idx].name = e.target.value; setMeasurementForm({ ...measurementForm, customFields: nf }); }}
+                          className={`${inp} py-2 text-xs`} />
+                      </div>
+                      <div className="flex-1">
+                        <input placeholder="Value" value={cf.value}
+                          onChange={e => { const nf = [...measurementForm.customFields]; nf[idx].value = e.target.value; setMeasurementForm({ ...measurementForm, customFields: nf }); }}
+                          className={`${inp} py-2 text-xs`} />
+                      </div>
+                      <button type="button" onClick={() => setMeasurementForm({ ...measurementForm, customFields: measurementForm.customFields.filter((_, i) => i !== idx) })} className="p-2.5 text-red-500">
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {loading ? "Saving..." : "Save Record"}
+                  {!loading && <CheckCircle2 size={18} />}
+                </button>
+              </form>
+            )}
+          </div>
+        )}
+
+        {/* ── 4b. EDIT MEASUREMENT (all-at-once) ──────────────────────────────── */}
+        {view === "edit_measurement" && selectedCustomer && (
+          <form onSubmit={handleSaveMeasurement} className="bg-card border border-border rounded-3xl p-6 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="space-y-5">
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Record Name *</label>
+                <input placeholder="e.g. Wedding Suit" value={measurementForm.label} onChange={e => setMeasurementForm({ ...measurementForm, label: e.target.value })} className={inp} required />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1 mb-1.5 block">Unit</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["Inches", "CM"] as const).map(u => (
+                    <button key={u} type="button" onClick={() => setMeasurementForm({ ...measurementForm, unit: u })}
+                      className={`py-2.5 rounded-xl text-xs font-bold border transition-all ${measurementForm.unit === u ? "bg-primary/10 border-primary text-primary" : "bg-card border-border text-muted-foreground"}`}>
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {measurementForm.category && (
+                <div className="space-y-6 pt-4 border-t border-border">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                    Template: <span className="text-primary">{measurementForm.category}</span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    {getTemplateFields(measurementForm.category).map(field => (
+                      <div key={field}>
+                        <label className="text-[10px] font-bold text-muted-foreground mb-1.5 block">{field}</label>
+                        <input type="text" inputMode="decimal" placeholder="0.0" value={measurementForm.values[field] || ""}
+                          onChange={e => setMeasurementForm({ ...measurementForm, values: { ...measurementForm.values, [field]: e.target.value } })}
+                          className={`${inp} py-2.5`} />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="space-y-3 pt-4 border-t border-border/50">
                     <div className="flex items-center justify-between">
                       <p className="text-[10px] font-black uppercase tracking-widest text-primary">Extra Fields</p>
-                      <button
-                        type="button"
-                        onClick={() => setMeasurementForm({
-                          ...measurementForm,
-                          customFields: [...measurementForm.customFields, { name: "", value: "" }]
-                        })}
-                        className="text-[10px] font-bold text-primary flex items-center gap-1"
-                      >
+                      <button type="button" onClick={() => setMeasurementForm({ ...measurementForm, customFields: [...measurementForm.customFields, { name: "", value: "" }] })} className="text-[10px] font-bold text-primary flex items-center gap-1">
                         <Plus size={12} /> Add Field
                       </button>
                     </div>
-
-                    {/* Saved custom field suggestions */}
-                    {customMeasurementFields.length > 0 && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {customMeasurementFields
-                          .filter(f => !getTemplateFields(measurementForm.category).includes(f))
-                          .map(f => (
-                            <button
-                              key={f}
-                              type="button"
-                              onClick={() => {
-                                if (!measurementForm.customFields.some(cf => cf.name === f)) {
-                                  setMeasurementForm({
-                                    ...measurementForm,
-                                    customFields: [...measurementForm.customFields, { name: f, value: "" }]
-                                  });
-                                }
-                              }}
-                              className="px-2 py-1 rounded-lg bg-muted/40 text-[10px] text-muted-foreground hover:bg-muted border border-border transition-all"
-                            >
-                              + {f}
-                            </button>
-                          ))}
-                      </div>
-                    )}
-
-                    <div className="space-y-3">
-                      {measurementForm.customFields.map((cf, idx) => (
-                        <div key={idx} className="flex gap-2 items-end">
-                          <div className="flex-1">
-                            <input
-                              placeholder="Field Name"
-                              value={cf.name}
-                              onChange={e => {
-                                const newFields = [...measurementForm.customFields];
-                                newFields[idx].name = e.target.value;
-                                setMeasurementForm({ ...measurementForm, customFields: newFields });
-                              }}
-                              className={`${inp} py-2 text-xs`}
-                            />
-                          </div>
-                          <div className="flex-1">
-                            <input
-                              placeholder="Value"
-                              value={cf.value}
-                              onChange={e => {
-                                const newFields = [...measurementForm.customFields];
-                                newFields[idx].value = e.target.value;
-                                setMeasurementForm({ ...measurementForm, customFields: newFields });
-                              }}
-                              className={`${inp} py-2 text-xs`}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setMeasurementForm({
-                                ...measurementForm,
-                                customFields: measurementForm.customFields.filter((_, i) => i !== idx)
-                              });
-                            }}
-                            className="p-2.5 text-red-500"
-                          >
-                            <X size={14} />
-                          </button>
+                    {measurementForm.customFields.map((cf, idx) => (
+                      <div key={idx} className="flex gap-2 items-end">
+                        <div className="flex-1">
+                          <input placeholder="Field Name" value={cf.name}
+                            onChange={e => { const nf = [...measurementForm.customFields]; nf[idx].name = e.target.value; setMeasurementForm({ ...measurementForm, customFields: nf }); }}
+                            className={`${inp} py-2 text-xs`} />
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex-1">
+                          <input placeholder="Value" value={cf.value}
+                            onChange={e => { const nf = [...measurementForm.customFields]; nf[idx].value = e.target.value; setMeasurementForm({ ...measurementForm, customFields: nf }); }}
+                            className={`${inp} py-2 text-xs`} />
+                        </div>
+                        <button type="button" onClick={() => setMeasurementForm({ ...measurementForm, customFields: measurementForm.customFields.filter((_, i) => i !== idx) })} className="p-2.5 text-red-500">
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
-
-            <button
-              type="submit"
-              disabled={loading || !measurementForm.category}
-              className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-            >
-              {loading ? "Saving..." : (measurementForm.id ? "Update Record" : "Save Record")}
+            <button type="submit" disabled={loading || !measurementForm.category}
+              className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold shadow-lg shadow-primary/20 active:scale-[0.98] transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+              {loading ? "Saving..." : "Update Record"}
               {!loading && <CheckCircle2 size={18} />}
             </button>
           </form>
@@ -1375,7 +1456,7 @@ export default function CustomerMeasurement() {
                 <h3 className="text-sm font-black uppercase tracking-wider">Unlock Premium</h3>
               </div>
               <p className="text-xs text-foreground font-medium leading-relaxed opacity-80">
-                Unlock professional features like cloud backup, unlimited customers, and advanced tailoring tools.
+                Unlock professional features: unlimited client records, full measurement history, custom templates, and advanced tailoring tools.
               </p>
               <button
                 onClick={() => setLocation("/pre-unlock")}
