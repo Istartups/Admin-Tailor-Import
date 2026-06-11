@@ -52,8 +52,8 @@ export default function PreUnlock() {
 
   const getInitialStep = (): Step => {
     if (subRoute === "success") return "success";
-    if (account) return "features"; // logged in → show features then payment
-    return "features";
+    if (account) return "features"; // already logged in → show upgrade details first
+    return "create_account";        // anonymous → lead form first
   };
 
   const [step, setStep] = useState<Step>(getInitialStep);
@@ -80,7 +80,7 @@ export default function PreUnlock() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [emailAvailable, setEmailAvailable]    = useState<boolean | null>(null);
   const [checkingEmail, setCheckingEmail]      = useState(false);
-  const emailCheckTimer = useRef<ReturnType<typeof setTimeout>>();
+  const emailCheckTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Manual payment evidence state
   const [evidence, setEvidence]       = useState<File | null>(null);
@@ -159,7 +159,7 @@ export default function PreUnlock() {
     if (form.password !== form.confirmPassword) {
       toast({ title: "Passwords Don't Match", description: "Please re-enter your password.", variant: "destructive" }); return;
     }
-    setStep("business_details");
+    setStep("features"); // show upgrade details after lead form
   };
 
   // ─── Step 1b: Register & Proceed to Payment ───────────────────────────────
@@ -344,11 +344,19 @@ export default function PreUnlock() {
 
             <div className="space-y-3">
               <button
-                onClick={() => account ? setStep("payment_method") : setStep("create_account")}
+                onClick={() => account ? setStep("payment_method") : setStep("business_details")}
                 className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg shadow-lg shadow-primary/20 active:scale-[0.98] transition-all"
               >
-                {account ? "Choose Payment Method" : "Get Started"}
+                {account ? "Choose Payment Method" : "Continue to Payment "}
               </button>
+              {!account && (
+                <button
+                  onClick={() => setStep("create_account")}
+                  className="w-full py-2 text-sm font-semibold text-muted-foreground"
+                >
+                  ← Back
+                </button>
+              )}
               <button
                 onClick={() => navigate("/account-login")}
                 className="w-full py-2 text-sm font-semibold text-muted-foreground flex items-center justify-center gap-2"
@@ -452,9 +460,8 @@ export default function PreUnlock() {
                 )}
               </div>
 
-              <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setStep("features")} className="flex-1 py-4 bg-secondary text-secondary-foreground rounded-2xl font-bold">Back</button>
-                <button type="submit" className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2">
+              <div className="pt-2">
+                <button type="submit" className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2">
                   Continue <ChevronRight size={18} />
                 </button>
               </div>

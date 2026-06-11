@@ -90,7 +90,7 @@ router.post("/admin/notifications/broadcast", authenticateAdmin as any, async (r
       icon: icon || "/onetailor-logo.png"
     });
 
-    const sendPromises = subscriptions.map(async (sub) => {
+    const sendPromises = subscriptions.map(async (sub: typeof subscriptions[number]) => {
       const pushSubscription = {
         endpoint: sub.endpoint,
         keys: {

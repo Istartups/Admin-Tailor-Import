@@ -361,7 +361,7 @@ router.post("/payment/paystack/initialize", async (req, res) => {
         email,
         amount: amount * 100, // Naira → Kobo
         currency: settings.currencyCode || "NGN",
-        callback_url: `${req.protocol}://${req.get("host")}/api/payment/paystack/verify`,
+        callback_url: `${process.env["REPLIT_DEV_DOMAIN"] ? `https://${process.env["REPLIT_DEV_DOMAIN"]}` : (process.env["API_URL"] || `${req.protocol}://${req.get("host")}`)}/api/payment/paystack/verify`,
         metadata: { deviceId, userId: user.id },
       },
       { headers: { Authorization: `Bearer ${settings.paystackSecretKey}`, "Content-Type": "application/json" } }
@@ -390,7 +390,7 @@ router.post("/payment/paystack/initialize", async (req, res) => {
 router.get("/payment/paystack/verify", async (req, res) => {
   const { trxref, reference } = req.query;
   const ref = (reference || trxref) as string;
-  const FRONTEND = process.env["FRONTEND_URL"] || "http://localhost:5173";
+  const FRONTEND = process.env["FRONTEND_URL"] || (process.env["REPLIT_DEV_DOMAIN"] ? `https://${process.env["REPLIT_DEV_DOMAIN"]}` : "http://localhost:5173");
 
   try {
     const [settings] = await db.select().from(paymentSettingsTable).where(eq(paymentSettingsTable.id, 1)).limit(1);
@@ -628,7 +628,7 @@ router.get("/admin/accounts", authenticateAdmin as any, async (req, res) => {
 
     // Enrich with premium request, payment status, profile per account
     const results = await Promise.all(
-      accounts.map(async (acc) => {
+      accounts.map(async (acc: typeof accounts[number]) => {
         const [premiumRequest] = await db.select().from(premiumRequestsTable)
           .where(eq(premiumRequestsTable.userId, acc.id)).limit(1);
 
