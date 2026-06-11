@@ -1,5 +1,6 @@
 import app from "./app";
 import { logger } from "./lib/logger";
+import { validateStartupEnvironment } from "./lib/startupValidation";
 import { db, adminsTable, paymentSettingsTable } from "@workspace/db";
 import { sql } from "drizzle-orm";
 import bcrypt from "bcryptjs";
@@ -20,6 +21,9 @@ async function startServer() {
     console.error(`🔥 ERROR: Invalid PORT "${rawPort}"`);
     process.exit(1);
   }
+
+  // ─── Security validation — must pass before any DB/network work ─────────────
+  validateStartupEnvironment();
 
   // Initialize DB before starting server
   try {
