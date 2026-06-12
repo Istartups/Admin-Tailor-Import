@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   CreditCard, Banknote, ArrowLeft, Loader2, Copy, Upload, X,
-  ExternalLink, Check, ShieldCheck
+  ExternalLink, Check, ShieldCheck, Smartphone
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToast } from "@/hooks/use-toast";
@@ -11,6 +11,9 @@ import { motion, AnimatePresence } from "framer-motion";
 
 interface PaymentSettings {
   price: number;
+  price2Device?: number;
+  price3Device?: number;
+  price5Device?: number;
   bankName: string;
   accountNumber: string;
   accountName: string;
@@ -27,22 +30,23 @@ type Screen = "select" | "paystack_confirm" | "manual";
 export default function PaymentMethod() {
   const account                  = useAppStore((s) => s.account);
   const isPremium                = useAppStore((s) => s.isPremium);
+  const selectedDeviceCount      = useAppStore((s) => s.selectedDeviceCount);
   const setPendingPremiumRequest = useAppStore((s) => s.setPendingPremiumRequest);
 
   const { toast }    = useToast();
   const [, navigate] = useLocation();
 
-  const [settings, setSettings]   = useState<PaymentSettings | null>(null);
-  const [loading, setLoading]     = useState(true);
+  const [settings, setSettings]     = useState<PaymentSettings | null>(null);
+  const [loading, setLoading]       = useState(true);
   const [processing, setProcessing] = useState(false);
-  const [screen, setScreen]       = useState<Screen>("select");
+  const [screen, setScreen]         = useState<Screen>("select");
 
   const [evidence, setEvidence]               = useState<File | null>(null);
   const [evidencePreview, setEvidencePreview] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isPremium) { navigate("/home"); return; }
+    if (isPremium) { navigate("/premium-activated"); return; }
     if (!account) { navigate("/pre-unlock"); return; }
     fetch("/api/payment-info")
       .then(r => r.json())
@@ -50,6 +54,16 @@ export default function PaymentMethod() {
       .catch(() => toast({ title: "Error", description: "Could not load payment info.", variant: "destructive" }))
       .finally(() => setLoading(false));
   }, [isPremium, account]);
+
+  const priceForCount = (count: number): number => {
+    if (!settings) return 0;
+    if (count === 2) return settings.price2Device || settings.price;
+    if (count === 3) return settings.price3Device || settings.price;
+    if (count === 5) return settings.price5Device || settings.price;
+    return settings.price;
+  };
+
+  const effectivePrice = priceForCount(selectedDeviceCount);
 
   const formatPrice = (p: number) =>
     new Intl.NumberFormat("en-NG", { style: "currency", currency: settings?.currencyCode || "NGN" })
@@ -62,7 +76,12 @@ export default function PaymentMethod() {
       const res  = await fetch("/api/payment/paystack/initialize", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceId: account?.deviceId || getDeviceId(), email: account?.email, amount: settings?.price }),
+        body: JSON.stringify({
+          deviceId:    account?.deviceId || getDeviceId(),
+          email:       account?.email,
+          amount:      effectivePrice,
+          deviceCount: selectedDeviceCount,
+        }),
       });
       const data = await res.json();
       if (data.status && data.data?.authorization_url) {
@@ -80,9 +99,10 @@ export default function PaymentMethod() {
     setProcessing(true);
     try {
       const fd = new FormData();
-      fd.append("deviceId", account?.deviceId || getDeviceId());
-      fd.append("evidence", evidence);
-      fd.append("amount", (settings?.price || 15000).toString());
+      fd.append("deviceId",    account?.deviceId || getDeviceId());
+      fd.append("evidence",    evidence);
+      fd.append("amount",      effectivePrice.toString());
+      fd.append("deviceCount", selectedDeviceCount.toString());
       const res = await fetch("/api/payment/manual", { method: "POST", body: fd });
       if (res.ok) {
         setPendingPremiumRequest(true);
@@ -121,12 +141,15 @@ export default function PaymentMethod() {
               <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center shrink-0">
                 <Check size={14} className="text-primary" />
               </div>
-              <div>
-                <p className="text-xs font-bold">{account?.email}</p>
-                <p className="text-[10px] text-muted-foreground">Paying for lifetime premium access</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-bold truncate">{account?.email}</p>
+                <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                  <Smartphone size={10} />
+                  {selectedDeviceCount} device{selectedDeviceCount !== 1 ? "s" : ""} — lifetime premium
+                </p>
               </div>
-              <div className="ml-auto text-right">
-                <p className="text-sm font-black text-primary">{formatPrice(settings?.price || 0)}</p>
+              <div className="ml-auto text-right shrink-0">
+                <p className="text-sm font-black text-primary">{formatPrice(effectivePrice)}</p>
                 <p className="text-[10px] text-muted-foreground">one-time</p>
               </div>
             </div>
@@ -168,7 +191,7 @@ export default function PaymentMethod() {
               )}
             </div>
 
-            <button onClick={() => navigate("/premium")} className="w-full py-3 text-sm text-muted-foreground font-semibold flex items-center justify-center gap-2">
+            <button onClick={() => navigate("/premium-details")} className="w-full py-3 text-sm text-muted-foreground font-semibold flex items-center justify-center gap-2">
               <ArrowLeft size={14} /> Back to Premium Details
             </button>
           </motion.div>
@@ -186,7 +209,8 @@ export default function PaymentMethod() {
             </div>
             <div className="p-5 bg-muted/30 rounded-2xl text-left space-y-3">
               {[
-                { label: "Amount",   value: formatPrice(settings?.price || 0) },
+                { label: "Amount",   value: formatPrice(effectivePrice) },
+                { label: "Devices",  value: `${selectedDeviceCount} device${selectedDeviceCount !== 1 ? "s" : ""}` },
                 { label: "Email",    value: account?.email || "" },
                 { label: "Product",  value: "OneTailor Premium (Lifetime)" },
               ].map(({ label, value }) => (
@@ -222,7 +246,10 @@ export default function PaymentMethod() {
             <div className="p-5 bg-primary/5 border border-primary/20 rounded-3xl space-y-4">
               <div className="p-4 bg-primary/10 rounded-2xl border border-primary/20 text-center space-y-1">
                 <p className="text-[10px] font-black uppercase tracking-widest text-primary/60">Transfer Exactly</p>
-                <p className="text-4xl font-black text-primary">{formatPrice(settings?.price || 15000)}</p>
+                <p className="text-4xl font-black text-primary">{formatPrice(effectivePrice)}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {selectedDeviceCount} device{selectedDeviceCount !== 1 ? "s" : ""} — lifetime access
+                </p>
               </div>
               <div className="space-y-2">
                 {[

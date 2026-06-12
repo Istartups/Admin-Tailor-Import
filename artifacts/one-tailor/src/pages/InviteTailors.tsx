@@ -83,7 +83,7 @@ ${referralCode}`;
   return (
     <div className="max-w-2xl mx-auto pb-20">
       <PageHeader 
-        title="Invite Tailors" 
+        title="Earn Credit" 
         subtitle="Grow the community & unlock rewards" 
         backPath="/all-tools"
       />

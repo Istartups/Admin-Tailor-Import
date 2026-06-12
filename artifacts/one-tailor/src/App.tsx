@@ -17,6 +17,7 @@ const WhatsAppLink                = lazy(() => import("@/pages/WhatsAppLink"));
 const Profit                      = lazy(() => import("@/pages/Profit"));
 const PreUnlock                   = lazy(() => import("@/pages/PreUnlock"));
 const PremiumDetails              = lazy(() => import("@/pages/PremiumDetails"));
+const PremiumActivated            = lazy(() => import("@/pages/PremiumActivated"));
 const PaymentMethod               = lazy(() => import("@/pages/PaymentMethod"));
 const AccountLogin                = lazy(() => import("@/pages/AccountLogin"));
 const ResetPassword               = lazy(() => import("@/pages/ResetPassword"));
@@ -70,6 +71,8 @@ function Router() {
         <Route path="/pre-unlock"         component={PreUnlock} />
         <Route path="/pre-unlock/:sub"    component={PreUnlock} />
         <Route path="/premium"            component={PremiumDetails} />
+        <Route path="/premium-details"    component={PremiumDetails} />
+        <Route path="/premium-activated"  component={PremiumActivated} />
         <Route path="/payment-method"     component={PaymentMethod} />
         <Route path="/account-login"      component={AccountLogin} />
         <Route path="/reset-password"     component={ResetPassword} />

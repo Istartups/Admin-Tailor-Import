@@ -214,13 +214,13 @@ export default function Home() {
           </div>
           {isPremium ? (
             <button
-              onClick={() => setShowProPopup(true)}
+              onClick={() => setLocation("/premium-activated")}
               className="flex items-center gap-1.5 rounded-full px-3 py-1.5 active:scale-95 transition-transform"
               style={{ background: "rgba(212,160,32,0.1)", border: "1px solid rgba(212,160,32,0.3)", color: "hsl(43,82%,60%)", fontSize: 11, fontWeight: 700 }}>
               <Crown size={12} /> ⭐ Premium Active
             </button>
           ) : (
-            <button onClick={() => setLocation("/pre-unlock")}
+            <button onClick={() => setLocation("/premium-details")}
               className="flex items-center gap-1.5 rounded-full px-3 py-1.5 active:scale-95 transition-transform"
               style={{ background: "rgba(212,160,32,0.1)", border: "1px solid rgba(212,160,32,0.3)", color: "hsl(43,82%,60%)", fontSize: 11, fontWeight: 700 }}>
               <ShieldCheck size={12} /> ⭐ Unlock Premium
@@ -632,7 +632,7 @@ export default function Home() {
 
       {/* ── Premium Teaser ───────────────────────────────────────────────────── */}
       {!isPremium && (
-        <div onClick={() => setLocation("/upgrade")} className="mt-3 relative overflow-hidden p-6 rounded-[2.5rem] bg-slate-900 border border-primary/20 cursor-pointer active:scale-[0.98] transition-all group">
+        <div onClick={() => setLocation("/premium-details")} className="mt-3 relative overflow-hidden p-6 rounded-[2.5rem] bg-slate-900 border border-primary/20 cursor-pointer active:scale-[0.98] transition-all group">
           <div className="absolute -top-12 -right-12 w-32 h-32 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-colors" />
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 bg-primary/20 rounded-2xl flex items-center justify-center border border-primary/30 group-hover:scale-110 transition-transform">

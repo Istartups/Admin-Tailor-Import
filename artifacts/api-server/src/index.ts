@@ -92,6 +92,9 @@ async function startServer() {
       { name: "pwa_description",       type: "TEXT" },
       { name: "pwa_theme_color",       type: "TEXT" },
       { name: "pwa_background_color",  type: "TEXT" },
+      { name: "price_2_device",        type: "INTEGER" },
+      { name: "price_3_device",        type: "INTEGER" },
+      { name: "price_5_device",        type: "INTEGER" },
     ];
     for (const col of settingsColumns) {
       try { await db.execute(sql.raw(`ALTER TABLE payment_settings ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`)); } catch {}

@@ -167,6 +167,7 @@ export interface AppState {
   pendingPremiumRequest: boolean;
   /** Granular status of the most recent premium request — null when none exists. */
   premiumRequestStatus: "pending" | "payment_submitted" | "approved" | "rejected" | null;
+  selectedDeviceCount: number;
 
   // Actions
   setMediaWorkspace: (file: MediaWorkspaceFile | null) => void;
@@ -192,6 +193,7 @@ export interface AppState {
   proUpgradeLink: string;
   proUpgradeButtonText: string;
 
+  setSelectedDeviceCount: (count: number) => void;
   setIsPremium: (status: boolean, key?: string) => void;
   setUsage: (count: number, limit: number) => void;
   incrementUsage: () => Promise<boolean>;
@@ -326,6 +328,8 @@ export const useAppStore = create<AppState>()(
         }
       },
 
+      selectedDeviceCount: 1,
+      setSelectedDeviceCount: (count) => set({ selectedDeviceCount: count }),
       setIsPremium: (status, key) => set({ isPremium: status, licenseKey: key || null }),
       setUsage: (count, limit) => set({ totalUsageCount: count, globalUsageLimit: limit }),
 

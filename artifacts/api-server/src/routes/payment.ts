@@ -538,11 +538,12 @@ router.put("/payment-info", authenticateAdmin as any, async (req, res) => {
       "isDebugMode", "isUsageLimitEnabled",
       "pwaName", "pwaShortName", "pwaDescription",
       "pwaThemeColor", "pwaBackgroundColor",
+      "price2Device", "price3Device", "price5Device",
     ];
 
     for (const key of allowedFields) {
       if (body[key] !== undefined) {
-        if (["price", "globalUsageLimit", "measurementLimit"].includes(key)) {
+        if (["price", "globalUsageLimit", "measurementLimit", "price2Device", "price3Device", "price5Device"].includes(key)) {
           updateData[key] = parseInt(body[key]) || 0;
         } else if (key === "paystackSecretKey") {
           // Never overwrite with empty string — GET endpoint strips the key,

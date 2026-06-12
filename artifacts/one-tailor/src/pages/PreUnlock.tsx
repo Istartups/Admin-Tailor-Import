@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   Loader2, Crown, ShieldCheck, LogIn, ChevronRight, Mail, Lock,
   Eye, EyeOff, Building2, Phone, X, RefreshCw, Upload, Check,
-  AlertCircle, MapPin
+  AlertCircle, MapPin, Smartphone
 } from "lucide-react";
 import { useAppStore } from "@/store/useAppStore";
 import { useToast } from "@/hooks/use-toast";
@@ -24,19 +24,21 @@ const CHALLENGES = [
   { id: "records",   label: "Keeping proper records",       emoji: "📋" },
 ];
 
-type QStep =
-  | "client_count"
-  | "challenge"
-  | "gender"
-  | "location"
-  | "account"
-  | "pending"
-  | "rejected_reupload"
-  | "success";
+const DEVICE_OPTIONS = [
+  { count: 1, label: "Just Me",       sub: "1 device",              emoji: "📱" },
+  { count: 2, label: "Me + 1 More",   sub: "2 devices",             emoji: "📱📱" },
+  { count: 3, label: "Small Team",    sub: "3 devices",             emoji: "📱📱📱" },
+  { count: 5, label: "Full Workshop", sub: "5 devices · Best value", emoji: "🏪" },
+];
 
-const TOTAL_QUESTION_STEPS = 5;
+type QStep =
+  | "client_count" | "challenge" | "gender"
+  | "location" | "devices" | "account"
+  | "pending" | "rejected_reupload" | "success";
+
+const TOTAL_QUESTION_STEPS = 6;
 const stepIndex: Record<string, number> = {
-  client_count: 0, challenge: 1, gender: 2, location: 3, account: 4,
+  client_count: 0, challenge: 1, gender: 2, location: 3, devices: 4, account: 5,
 };
 
 const slideVariants = {
@@ -54,6 +56,8 @@ export default function PreUnlock() {
   const setPendingPremiumRequest = useAppStore((s) => s.setPendingPremiumRequest);
   const premiumRequestStatus     = useAppStore((s) => s.premiumRequestStatus);
   const businessProfile          = useAppStore((s) => s.businessProfile);
+  const selectedDeviceCount      = useAppStore((s) => s.selectedDeviceCount);
+  const setSelectedDeviceCount   = useAppStore((s) => s.setSelectedDeviceCount);
 
   const { toast }    = useToast();
   const [, navigate] = useLocation();
@@ -73,15 +77,15 @@ export default function PreUnlock() {
   const [processing, setProcessing] = useState(false);
 
   const [answers, setAnswers] = useState({
-    clientRange: "",
-    challenge:   "",
-    gender:      "" as "male" | "female" | "",
-    city:        "",
-    state:       "",
-    name:        "",
-    phone:       "",
-    email:       "",
-    password:    "",
+    clientRange:     "",
+    challenge:       "",
+    gender:          "" as "male" | "female" | "",
+    city:            "",
+    state:           "",
+    name:            "",
+    phone:           "",
+    email:           "",
+    password:        "",
     confirmPassword: "",
   });
 
@@ -101,7 +105,7 @@ export default function PreUnlock() {
     if (account) {
       if (premiumRequestStatus === "payment_submitted") { setStep("pending"); return; }
       if (premiumRequestStatus === "rejected")          { setStep("rejected_reupload"); return; }
-      navigate("/premium");
+      navigate("/premium-details");
     }
   }, [account, premiumRequestStatus, subRoute]);
 
@@ -122,8 +126,13 @@ export default function PreUnlock() {
     emailCheckTimer.current = setTimeout(() => checkEmailAvailability(email), 600);
   };
 
-  const pick = (field: keyof typeof answers, value: string, next: QStep, delay = 280) => {
+  const pick = (field: keyof typeof answers, value: string, next: QStep, delay = 260) => {
     setAnswers(a => ({ ...a, [field]: value }));
+    setTimeout(() => setStep(next), delay);
+  };
+
+  const pickDevice = (count: number, next: QStep, delay = 260) => {
+    setSelectedDeviceCount(count);
     setTimeout(() => setStep(next), delay);
   };
 
@@ -182,7 +191,7 @@ export default function PreUnlock() {
         brandColors: businessProfile?.brandColors,
       });
       toast({ title: "Account Created! ✅", description: "See your premium options." });
-      navigate("/premium");
+      navigate("/premium-details");
     } catch {
       toast({ title: "Network Error", description: "Could not complete registration.", variant: "destructive" });
     } finally {
@@ -227,8 +236,8 @@ export default function PreUnlock() {
         </div>
         <h1 className="text-2xl font-bold">Premium Active</h1>
         <p className="text-muted-foreground">All professional tools are unlocked.</p>
-        <button onClick={() => navigate("/home")} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">
-          Continue to Toolkit
+        <button onClick={() => navigate("/premium-activated")} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">
+          View Membership
         </button>
       </div>
     );
@@ -339,24 +348,16 @@ export default function PreUnlock() {
                   <label className={lbl}>City</label>
                   <div className="relative">
                     <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input
-                      type="text" placeholder="e.g. Lagos, Abuja, Kano..."
-                      value={answers.city}
-                      onChange={e => setAnswers(a => ({ ...a, city: e.target.value }))}
-                      className={inp}
-                    />
+                    <input type="text" placeholder="e.g. Lagos, Abuja, Kano..."
+                      value={answers.city} onChange={e => setAnswers(a => ({ ...a, city: e.target.value }))} className={inp} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl}>State</label>
                   <div className="relative">
                     <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input
-                      type="text" placeholder="e.g. Lagos State, FCT..."
-                      value={answers.state}
-                      onChange={e => setAnswers(a => ({ ...a, state: e.target.value }))}
-                      className={inp}
-                    />
+                    <input type="text" placeholder="e.g. Lagos State, FCT..."
+                      value={answers.state} onChange={e => setAnswers(a => ({ ...a, state: e.target.value }))} className={inp} />
                   </div>
                 </div>
               </div>
@@ -366,68 +367,83 @@ export default function PreUnlock() {
                     if (!answers.city || !answers.state) {
                       toast({ title: "Required", description: "Please enter your city and state.", variant: "destructive" }); return;
                     }
-                    setStep("account");
+                    setStep("devices");
                   }}
                   className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-base flex items-center justify-center gap-2"
                 >
                   Continue <ChevronRight size={18} />
                 </button>
-                <button onClick={() => setStep("gender")} className="w-full py-2 text-sm text-muted-foreground font-semibold">
-                  ← Back
-                </button>
+                <button onClick={() => setStep("gender")} className="w-full py-2 text-sm text-muted-foreground font-semibold">← Back</button>
               </div>
             </motion.div>
           )}
 
-          {/* ── Q5: ACCOUNT CREATION ──────────────────────────────────────────── */}
+          {/* ── Q5: DEVICES ───────────────────────────────────────────────────── */}
+          {step === "devices" && (
+            <motion.div key="devices" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.25 }} className="space-y-6">
+              <div>
+                <h2 className="text-2xl font-bold leading-snug">How many devices do you want Premium on?</h2>
+                <p className="text-sm text-muted-foreground mt-1">You can always upgrade later to add more devices.</p>
+              </div>
+              <div className="space-y-3">
+                {DEVICE_OPTIONS.map(({ count, label, sub, emoji }) => (
+                  <button
+                    key={count}
+                    onClick={() => pickDevice(count, "account")}
+                    className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border-2 font-semibold text-sm text-left transition-all active:scale-[0.98] ${selectedDeviceCount === count ? "bg-primary/10 border-primary text-primary" : "bg-card border-border hover:border-primary/30"}`}
+                  >
+                    <span className="text-2xl shrink-0">{emoji}</span>
+                    <div className="flex-1">
+                      <p className="font-bold">{label}</p>
+                      <p className={`text-[11px] mt-0.5 ${selectedDeviceCount === count ? "text-primary/70" : "text-muted-foreground"}`}>{sub}</p>
+                    </div>
+                    {selectedDeviceCount === count && <Check size={16} className="text-primary shrink-0" />}
+                    {count === 5 && <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/20">BEST</span>}
+                  </button>
+                ))}
+              </div>
+              <button onClick={() => setStep("location")} className="w-full py-2 text-sm text-muted-foreground font-semibold">← Back</button>
+            </motion.div>
+          )}
+
+          {/* ── Q6: ACCOUNT CREATION ──────────────────────────────────────────── */}
           {step === "account" && (
             <motion.div key="account" variants={slideVariants} initial="enter" animate="center" exit="exit" transition={{ duration: 0.25 }} className="space-y-5">
               <div>
                 <h2 className="text-2xl font-bold leading-snug">Create your account</h2>
-                <p className="text-sm text-muted-foreground mt-1">One account restores premium on any device.</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  One account restores premium on{" "}
+                  <span className="font-bold text-primary">{selectedDeviceCount} device{selectedDeviceCount !== 1 ? "s" : ""}</span>.
+                </p>
               </div>
               <form onSubmit={handleRegister} className="space-y-4">
                 <div className="space-y-1.5">
                   <label className={lbl}>Business / Shop Name</label>
                   <div className="relative">
                     <Building2 className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input
-                      required type="text" placeholder="e.g. Joyful Stitches"
-                      value={answers.name}
-                      onChange={e => setAnswers(a => ({ ...a, name: e.target.value }))}
-                      className={inp}
-                    />
+                    <input required type="text" placeholder="e.g. Joyful Stitches" value={answers.name}
+                      onChange={e => setAnswers(a => ({ ...a, name: e.target.value }))} className={inp} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl}>Phone Number</label>
                   <div className="relative">
                     <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input
-                      required type="tel" placeholder="080..."
-                      value={answers.phone}
-                      onChange={e => setAnswers(a => ({ ...a, phone: e.target.value.replace(/[^0-9+]/g, "") }))}
-                      className={inp}
-                    />
+                    <input required type="tel" placeholder="080..." value={answers.phone}
+                      onChange={e => setAnswers(a => ({ ...a, phone: e.target.value.replace(/[^0-9+]/g, "") }))} className={inp} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
                   <label className={lbl}>Email Address</label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input
-                      required type="email" placeholder="you@example.com"
-                      value={answers.email}
+                    <input required type="email" placeholder="you@example.com" value={answers.email}
                       onChange={e => handleEmailChange(e.target.value)}
-                      className={`${inp} ${emailAvailable === false ? "border-red-500" : emailAvailable === true ? "border-emerald-500" : ""}`}
-                    />
+                      className={`${inp} ${emailAvailable === false ? "border-red-500" : emailAvailable === true ? "border-emerald-500" : ""}`} />
                     {checkingEmail && <Loader2 className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-muted-foreground" size={14} />}
                   </div>
                   {!checkingEmail && emailAvailable === false && (
-                    <p className="text-xs text-red-500 ml-1">
-                      Email taken.{" "}
-                      <button type="button" onClick={() => navigate("/account-login")} className="underline font-bold">Login instead</button>
-                    </p>
+                    <p className="text-xs text-red-500 ml-1">Email taken. <button type="button" onClick={() => navigate("/account-login")} className="underline font-bold">Login instead</button></p>
                   )}
                   {!checkingEmail && emailAvailable === true && <p className="text-xs text-emerald-500 ml-1">✓ Email available</p>}
                 </div>
@@ -435,12 +451,8 @@ export default function PreUnlock() {
                   <label className={lbl}>Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input
-                      required type={showPassword ? "text" : "password"} placeholder="At least 6 characters"
-                      value={answers.password}
-                      onChange={e => setAnswers(a => ({ ...a, password: e.target.value }))}
-                      className={`${inp} pr-11`}
-                    />
+                    <input required type={showPassword ? "text" : "password"} placeholder="At least 6 characters" value={answers.password}
+                      onChange={e => setAnswers(a => ({ ...a, password: e.target.value }))} className={`${inp} pr-11`} />
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
                       {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -450,12 +462,9 @@ export default function PreUnlock() {
                   <label className={lbl}>Confirm Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                    <input
-                      required type={showConfirmPassword ? "text" : "password"} placeholder="Repeat password"
-                      value={answers.confirmPassword}
+                    <input required type={showConfirmPassword ? "text" : "password"} placeholder="Repeat password" value={answers.confirmPassword}
                       onChange={e => setAnswers(a => ({ ...a, confirmPassword: e.target.value }))}
-                      className={`${inp} pr-11 ${answers.confirmPassword && answers.password !== answers.confirmPassword ? "border-red-500" : ""}`}
-                    />
+                      className={`${inp} pr-11 ${answers.confirmPassword && answers.password !== answers.confirmPassword ? "border-red-500" : ""}`} />
                     <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-muted-foreground">
                       {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
@@ -465,7 +474,7 @@ export default function PreUnlock() {
                   )}
                 </div>
                 <div className="flex gap-3 pt-2">
-                  <button type="button" onClick={() => setStep("location")} className="flex-1 py-4 bg-secondary text-secondary-foreground rounded-2xl font-bold">Back</button>
+                  <button type="button" onClick={() => setStep("devices")} className="flex-1 py-4 bg-secondary text-secondary-foreground rounded-2xl font-bold">Back</button>
                   <button type="submit" disabled={processing} className="flex-[2] py-4 bg-primary text-primary-foreground rounded-2xl font-bold flex items-center justify-center gap-2 disabled:opacity-50">
                     {processing ? <Loader2 className="animate-spin" size={18} /> : <><Crown size={18} /> See Premium</>}
                   </button>
@@ -492,9 +501,7 @@ export default function PreUnlock() {
                   You'll receive a confirmation at <b>{account.email}</b> once approved.
                 </div>
               )}
-              <button onClick={() => navigate("/home")} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">
-                Back to Toolkit
-              </button>
+              <button onClick={() => navigate("/home")} className="px-8 py-3 bg-primary text-primary-foreground rounded-xl font-bold">Back to Toolkit</button>
             </motion.div>
           )}
 
@@ -530,11 +537,9 @@ export default function PreUnlock() {
                 )}
                 <div className="space-y-1.5">
                   <label className={lbl}>Additional Notes <span className="normal-case font-normal text-muted-foreground/60">(optional)</span></label>
-                  <textarea
-                    value={rejectNotes} onChange={e => setRejectNotes(e.target.value)}
+                  <textarea value={rejectNotes} onChange={e => setRejectNotes(e.target.value)}
                     placeholder="e.g. I paid on June 10 at 2pm via GTBank USSD..."
-                    className="w-full px-4 py-3 rounded-2xl bg-card border border-border outline-none focus:border-primary text-sm resize-none min-h-[100px]"
-                  />
+                    className="w-full px-4 py-3 rounded-2xl bg-card border border-border outline-none focus:border-primary text-sm resize-none min-h-[100px]" />
                 </div>
               </div>
               <div className="flex gap-3">
@@ -556,7 +561,7 @@ export default function PreUnlock() {
               <p className="text-muted-foreground">Welcome to OneTailor Premium{account?.businessName ? `, ${account.businessName}` : ""}!</p>
               <div className="p-5 bg-emerald-50 dark:bg-emerald-950/30 rounded-3xl space-y-2">
                 <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">✅ Premium Access: ACTIVE</p>
-                <p className="text-xs text-muted-foreground">Log in on any device with your email to restore premium automatically.</p>
+                <p className="text-xs text-muted-foreground">Log in on any authorised device with your email to restore premium automatically.</p>
               </div>
               <button onClick={() => navigate("/home")} className="w-full py-4 bg-primary text-primary-foreground rounded-2xl font-bold text-lg">
                 Start Using Premium Features

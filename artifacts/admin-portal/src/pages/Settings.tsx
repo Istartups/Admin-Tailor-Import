@@ -42,6 +42,9 @@ import {
 
 interface PaymentInfo {
   price: string;
+  price2Device: string;
+  price3Device: string;
+  price5Device: string;
   bankName: string;
   accountNumber: string;
   accountName: string;
@@ -85,6 +88,9 @@ export default function Settings() {
 
   const [settings, setSettings] = useState<PaymentInfo>({
     price: "",
+    price2Device: "",
+    price3Device: "",
+    price5Device: "",
     bankName: "",
     accountNumber: "",
     accountName: "",
@@ -116,6 +122,9 @@ export default function Settings() {
         if (data.currencySymbol) setCurrencySymbol(data.currencySymbol);
         setSettings({
           price: (data.price !== null && data.price !== undefined) ? String(data.price) : "",
+          price2Device: (data.price2Device !== null && data.price2Device !== undefined) ? String(data.price2Device) : "",
+          price3Device: (data.price3Device !== null && data.price3Device !== undefined) ? String(data.price3Device) : "",
+          price5Device: (data.price5Device !== null && data.price5Device !== undefined) ? String(data.price5Device) : "",
           bankName: data.bankName || "",
           accountNumber: data.accountNumber || "",
           accountName: data.accountName || "",
@@ -336,17 +345,59 @@ export default function Settings() {
                       </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">License Price</label>
-                      <div className="relative">
-                        <Banknote className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary/40" />
-                        <Input 
-                          value={settings.price || ""}
-                          onChange={(e) => setSettings({...settings, price: e.target.value})}
-                          placeholder={`${currencySymbol}15,000`}
-                          className="h-12 pl-11 rounded-xl bg-muted/30 border-border font-bold text-foreground"
-                        />
+                    <div className="space-y-2 col-span-1 md:col-span-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-primary/60 px-1">Device Pricing Tiers</label>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1">1 Device</label>
+                          <div className="relative">
+                            <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primary/40" />
+                            <Input
+                              value={settings.price || ""}
+                              onChange={(e) => setSettings({...settings, price: e.target.value})}
+                              placeholder={`${currencySymbol}15,000`}
+                              className="h-11 pl-9 rounded-xl bg-muted/30 border-border font-bold text-foreground text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1">2 Devices</label>
+                          <div className="relative">
+                            <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primary/40" />
+                            <Input
+                              value={settings.price2Device || ""}
+                              onChange={(e) => setSettings({...settings, price2Device: e.target.value})}
+                              placeholder={`${currencySymbol}25,000`}
+                              className="h-11 pl-9 rounded-xl bg-muted/30 border-border font-bold text-foreground text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1">3 Devices</label>
+                          <div className="relative">
+                            <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primary/40" />
+                            <Input
+                              value={settings.price3Device || ""}
+                              onChange={(e) => setSettings({...settings, price3Device: e.target.value})}
+                              placeholder={`${currencySymbol}35,000`}
+                              className="h-11 pl-9 rounded-xl bg-muted/30 border-border font-bold text-foreground text-sm"
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1">5 Devices</label>
+                          <div className="relative">
+                            <Banknote className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-primary/40" />
+                            <Input
+                              value={settings.price5Device || ""}
+                              onChange={(e) => setSettings({...settings, price5Device: e.target.value})}
+                              placeholder={`${currencySymbol}50,000`}
+                              className="h-11 pl-9 rounded-xl bg-muted/30 border-border font-bold text-foreground text-sm"
+                            />
+                          </div>
+                        </div>
                       </div>
+                      <p className="text-[10px] text-muted-foreground px-1">Leave blank to fall back to the 1-device price.</p>
                     </div>
 
                     <div className="space-y-2">
